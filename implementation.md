@@ -93,3 +93,32 @@ Pillow>=10.0
 - **Memory independent of model** — `memory_retriever.py` queries the memory app; `prompt_builder.py` feeds it into context. Swap model without touching memory
 - **Swappable GGUF** — `model_loader.py` reads model path from env var; any GGUF works as long as prompt format is adjusted in `prompt_builder.py`
 - **CPU→GPU upgrade path** — No frontend or DB changes needed; just change the host and env vars
+
+## Technical Decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Streaming | SSE via `StreamingHttpResponse` | Model is CPU-bound (llama.cpp), sync is fine for V1. No Channels/Redis/Daphne complexity |
+| Storage | `django-storages[s3]` → Supabase Storage | Supabase Storage is S3-compatible; swap to any S3 provider without code changes |
+| Auth | `simplejwt`, Bearer header | 30min access token, 7-day refresh. Standard, well-supported, no sessions needed |
+| Memory search | PostgreSQL full-text search | Built into Supabase, no extra deps. Upgrade to embeddings in V2 |
+| Env management | `django-environ` | Loads `.env` files, casts types, standard Django practice |
+
+### `.env.example`
+
+```
+SECRET_KEY=
+DEBUG=True
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+JWT_ACCESS_TTL=30
+JWT_REFRESH_TTL=7
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+
+SUPABASE_URL=https://project.supabase.co
+SUPABASE_SERVICE_KEY=
+SUPABASE_STORAGE_BUCKET=ai-platform
+
+MODEL_PATH=models/qwen-2.5-3b-instruct-q4_k_m.gguf
+MODEL_CONTEXT_SIZE=8192
+MODEL_N_THREADS=4
+```
