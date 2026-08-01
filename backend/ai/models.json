@@ -1,0 +1,10 @@
+{
+  "default": {"name": "qwen2.5-3b-instruct-q4_k_m", "backend": "local"},
+  "planner": {"name": "google/gemma-4-26b-a4b-it:free", "backend": "openrouter"},
+  "chat": {"name": "google/gemma-4-26b-a4b-it:free", "backend": "openrouter"},
+  "extract": {"name": "google/gemma-4-26b-a4b-it:free", "backend": "openrouter"},
+  "coding": {"name": "cohere/north-mini-code:free", "backend": "openrouter"},
+  "reasoning": {"name": "google/gemma-4-26b-a4b-it:free", "backend": "openrouter"},
+  "creative": {"name": "google/gemma-4-26b-a4b-it:free", "backend": "openrouter"},
+  "fallback": {"name": "qwen2.5-3b-instruct-q4_k_m", "backend": "local"}
+}

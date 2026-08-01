@@ -1,0 +1,199 @@
+{
+  "entities": {
+    "nvidia": {
+      "aliases": ["nvidia", "nvidia corporation", "nvda"],
+      "name": "NVIDIA Corporation",
+      "founded": "1993",
+      "headquarters": "Santa Clara, California, USA",
+      "ceo": "Jensen Huang",
+      "website": "https://www.nvidia.com",
+      "source": "https://www.nvidia.com/en-us/about-nvidia/"
+    },
+    "amd": {
+      "aliases": ["amd", "advanced micro devices"],
+      "name": "Advanced Micro Devices, Inc.",
+      "founded": "1969",
+      "headquarters": "Santa Clara, California, USA",
+      "ceo": "Lisa Su",
+      "website": "https://www.amd.com",
+      "source": "https://www.amd.com/en/corporate/about-amd"
+    },
+    "intel": {
+      "aliases": ["intel", "intel corporation"],
+      "name": "Intel Corporation",
+      "founded": "1968",
+      "headquarters": "Santa Clara, California, USA",
+      "ceo": "Lip-Bu Tan",
+      "website": "https://www.intel.com",
+      "source": "https://www.intel.com/content/www/us/en/company-overview/company-overview.html"
+    },
+    "apple": {
+      "aliases": ["apple", "apple inc"],
+      "name": "Apple Inc.",
+      "founded": "1976",
+      "headquarters": "Cupertino, California, USA",
+      "ceo": "Tim Cook",
+      "website": "https://www.apple.com",
+      "source": "https://www.apple.com/newsroom/"
+    },
+    "google": {
+      "aliases": ["google", "alphabet"],
+      "name": "Alphabet Inc.",
+      "founded": "1998",
+      "headquarters": "Mountain View, California, USA",
+      "ceo": "Sundar Pichai",
+      "website": "https://www.google.com",
+      "source": "https://abc.xyz/"
+    },
+    "microsoft": {
+      "aliases": ["microsoft", "msft"],
+      "name": "Microsoft Corporation",
+      "founded": "1975",
+      "headquarters": "Redmond, Washington, USA",
+      "ceo": "Satya Nadella",
+      "website": "https://www.microsoft.com",
+      "source": "https://www.microsoft.com/en-us/about"
+    },
+    "qualcomm": {
+      "aliases": ["qualcomm", "qcom"],
+      "name": "Qualcomm Incorporated",
+      "founded": "1985",
+      "headquarters": "San Diego, California, USA",
+      "ceo": "Cristiano Amon",
+      "website": "https://www.qualcomm.com",
+      "source": "https://www.qualcomm.com/company"
+    },
+    "arm": {
+      "aliases": ["arm", "arm holdings"],
+      "name": "Arm Holdings plc",
+      "founded": "1990",
+      "headquarters": "Cambridge, England, UK",
+      "ceo": "Rene Haas",
+      "website": "https://www.arm.com",
+      "source": "https://www.arm.com/company"
+    },
+    "samsung": {
+      "aliases": ["samsung", "samsung electronics"],
+      "name": "Samsung Electronics Co., Ltd.",
+      "founded": "1969",
+      "headquarters": "Suwon-si, Gyeonggi-do, South Korea",
+      "ceo": "Han Jong-hee",
+      "website": "https://www.samsung.com",
+      "source": "https://www.samsung.com/us/about-us/"
+    },
+    "tsmc": {
+      "aliases": ["tsmc", "taiwan semiconductor"],
+      "name": "Taiwan Semiconductor Manufacturing Company",
+      "founded": "1987",
+      "headquarters": "Hsinchu, Taiwan",
+      "ceo": "C. C. Wei",
+      "website": "https://www.tsmc.com",
+      "source": "https://www.tsmc.com/english/aboutTSMC"
+    },
+    "ibm": {
+      "aliases": ["ibm", "international business machines"],
+      "name": "International Business Machines Corporation",
+      "founded": "1911",
+      "headquarters": "Armonk, New York, USA",
+      "ceo": "Arvind Krishna",
+      "website": "https://www.ibm.com",
+      "source": "https://www.ibm.com/ibm/history/"
+    },
+    "openai": {
+      "aliases": ["openai"],
+      "name": "OpenAI",
+      "founded": "2015",
+      "headquarters": "San Francisco, California, USA",
+      "ceo": "Sam Altman",
+      "website": "https://openai.com",
+      "source": "https://openai.com/about/"
+    },
+    "anthropic": {
+      "aliases": ["anthropic"],
+      "name": "Anthropic",
+      "founded": "2021",
+      "headquarters": "San Francisco, California, USA",
+      "ceo": "Dario Amodei",
+      "website": "https://www.anthropic.com",
+      "source": "https://www.anthropic.com/company"
+    },
+    "meta": {
+      "aliases": ["meta", "facebook", "meta platforms"],
+      "name": "Meta Platforms, Inc.",
+      "founded": "2004",
+      "headquarters": "Menlo Park, California, USA",
+      "ceo": "Mark Zuckerberg",
+      "website": "https://about.meta.com",
+      "source": "https://about.meta.com/company-info/"
+    },
+    "amazon": {
+      "aliases": ["amazon", "aws", "amazon web services"],
+      "name": "Amazon.com, Inc.",
+      "founded": "1994",
+      "headquarters": "Seattle, Washington, USA",
+      "ceo": "Andy Jassy",
+      "website": "https://www.amazon.com",
+      "source": "https://www.aboutamazon.com/"
+    },
+    "tesla": {
+      "aliases": ["tesla", "tesla motors"],
+      "name": "Tesla, Inc.",
+      "founded": "2003",
+      "headquarters": "Austin, Texas, USA",
+      "ceo": "Elon Musk",
+      "website": "https://www.tesla.com",
+      "source": "https://www.tesla.com/about"
+    }
+  },
+  "products": {
+    "h100": {"vendor": "nvidia", "class": "datacenter"},
+    "h200": {"vendor": "nvidia", "class": "datacenter"},
+    "b100": {"vendor": "nvidia", "class": "datacenter"},
+    "b200": {"vendor": "nvidia", "class": "datacenter"},
+    "b300": {"vendor": "nvidia", "class": "datacenter"},
+    "gb200": {"vendor": "nvidia", "class": "datacenter"},
+    "gb300": {"vendor": "nvidia", "class": "datacenter"},
+    "a100": {"vendor": "nvidia", "class": "datacenter"},
+    "v100": {"vendor": "nvidia", "class": "datacenter"},
+    "t4": {"vendor": "nvidia", "class": "datacenter"},
+    "dgx": {"vendor": "nvidia", "class": "datacenter"},
+    "h200 nvl": {"vendor": "nvidia", "class": "datacenter"},
+    "rtx 5090": {"vendor": "nvidia", "class": "consumer"},
+    "rtx 5080": {"vendor": "nvidia", "class": "consumer"},
+    "rtx 5070": {"vendor": "nvidia", "class": "consumer"},
+    "rtx 4090": {"vendor": "nvidia", "class": "consumer"},
+    "gtx": {"vendor": "nvidia", "class": "consumer"},
+    "geforce": {"vendor": "nvidia", "class": "consumer"},
+    "cuda": {"vendor": "nvidia", "class": "software"},
+    "nvlink": {"vendor": "nvidia", "class": "datacenter"},
+    "mi300x": {"vendor": "amd", "class": "datacenter"},
+    "mi325x": {"vendor": "amd", "class": "datacenter"},
+    "mi350x": {"vendor": "amd", "class": "datacenter"},
+    "mi400": {"vendor": "amd", "class": "datacenter"},
+    "cdna": {"vendor": "amd", "class": "datacenter"},
+    "instinct": {"vendor": "amd", "class": "datacenter"},
+    "epyc": {"vendor": "amd", "class": "datacenter"},
+    "ryzen": {"vendor": "amd", "class": "consumer"},
+    "radeon": {"vendor": "amd", "class": "consumer"},
+    "zen": {"vendor": "amd", "class": "consumer"},
+    "xeon": {"vendor": "intel", "class": "datacenter"},
+    "core ultra": {"vendor": "intel", "class": "consumer"},
+    "core i": {"vendor": "intel", "class": "consumer"},
+    "arc": {"vendor": "intel", "class": "consumer"},
+    "gaudi": {"vendor": "intel", "class": "datacenter"},
+    "habana": {"vendor": "intel", "class": "datacenter"},
+    "snapdragon": {"vendor": "qualcomm", "class": "mobile"},
+    "orion": {"vendor": "qualcomm", "class": "mobile"},
+    "tpu": {"vendor": "google", "class": "datacenter"},
+    "trainium": {"vendor": "aws", "class": "datacenter"},
+    "inferentia": {"vendor": "aws", "class": "datacenter"},
+    "graviton": {"vendor": "aws", "class": "datacenter"},
+    "m4": {"vendor": "apple", "class": "consumer"},
+    "m5": {"vendor": "apple", "class": "consumer"},
+    "m6": {"vendor": "apple", "class": "consumer"},
+    "neural engine": {"vendor": "apple", "class": "consumer"},
+    "apple silicon": {"vendor": "apple", "class": "consumer"},
+    "maia": {"vendor": "microsoft", "class": "datacenter"},
+    "cobalt": {"vendor": "microsoft", "class": "datacenter"}
+  }
+}

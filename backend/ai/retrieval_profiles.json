@@ -1,0 +1,114 @@
+{
+  "profiles": {
+    "hardware": {
+      "description": "Chips, GPUs, accelerators, CPUs, phones and consumer electronics",
+      "required_domains": ["nvidia.com", "amd.com"],
+      "preferred_domains": ["nvidia.com", "amd.com", "intel.com", "qualcomm.com", "apple.com", "arm.com", "samsung.com", "google.com", "tsmc.com"],
+      "boost_domains": ["nvidia.com", "amd.com", "intel.com", "qualcomm.com", "apple.com", "arm.com", "samsung.com", "google.com", "tsmc.com", "techpowerup.com", "videocardz.com", "anandtech.com", "semianalysis.com", "wikichip.org"],
+      "excluded_domains": [],
+      "keywords": ["specifications", "datasheet", "architecture"],
+      "temporal": "balanced",
+      "restrictive": false,
+      "schema_hint": "hardware"
+    },
+    "investment": {
+      "description": "Earnings, funding rounds, filings, share prices, financial reports",
+      "required_domains": ["sec.gov", "reuters.com"],
+      "preferred_domains": ["sec.gov", "reuters.com", "investor.{vendor}.com"],
+      "boost_domains": ["sec.gov", "reuters.com", "bloomberg.com", "cnbc.com", "marketwatch.com", "finance.yahoo.com", "businesswire.com", "prnewswire.com", "businessinsider.com", "fool.com", "investor.{vendor}.com"],
+      "excluded_domains": ["reddit.com", "quora.com", "medium.com"],
+      "keywords": ["earnings", "10-K", "10-Q", "shareholder", "financial results", "annual report"],
+      "temporal": "fresh",
+      "restrictive": true,
+      "schema_hint": "company"
+    },
+    "technical": {
+      "description": "Programming, documentation, frameworks, APIs, tutorials",
+      "required_domains": ["stackoverflow.com", "github.com"],
+      "preferred_domains": ["docs.python.org", "github.com", "stackoverflow.com", "developer.mozilla.org", "learn.microsoft.com"],
+      "boost_domains": ["docs.python.org", "github.com", "stackoverflow.com", "developer.mozilla.org", "learn.microsoft.com", "nodejs.org", "react.dev", "realpython.com", "docs.djangoproject.com"],
+      "excluded_domains": ["reddit.com"],
+      "keywords": ["documentation", "example", "best practices"],
+      "temporal": "none",
+      "restrictive": false,
+      "schema_hint": null
+    },
+    "company": {
+      "description": "Company overviews, leadership, product lines, org profiles",
+      "required_domains": [],
+      "preferred_domains": [],
+      "boost_domains": ["linkedin.com", "crunchbase.com", "reuters.com", "bloomberg.com", "businesswire.com", "prnewswire.com", "theinformation.com"],
+      "excluded_domains": ["reddit.com", "quora.com"],
+      "keywords": ["company overview", "leadership team", "about us"],
+      "temporal": "balanced",
+      "restrictive": false,
+      "schema_hint": "company"
+    },
+    "news": {
+      "description": "Recent announcements, releases, current events",
+      "required_domains": ["reuters.com"],
+      "preferred_domains": [],
+      "boost_domains": ["reuters.com", "bloomberg.com", "cnbc.com", "techcrunch.com", "theverge.com", "arstechnica.com", "venturebeat.com", "businesswire.com", "prnewswire.com", "engadget.com"],
+      "excluded_domains": ["reddit.com"],
+      "keywords": ["latest", "announcement", "press release"],
+      "temporal": "fresh",
+      "restrictive": false,
+      "schema_hint": null
+    },
+    "medical": {
+      "description": "Health, drugs, treatments, clinical evidence, guidelines",
+      "required_domains": ["who.int", "cdc.gov"],
+      "preferred_domains": ["nejm.org", "nature.com", "thelancet.com", "jamanetwork.com"],
+      "boost_domains": ["nih.gov", "who.int", "nejm.org", "fda.gov", "cdc.gov", "pubmed.ncbi.nlm.nih.gov", "mayoclinic.org", "webmd.com", "lancet.com", "jamanetwork.com", "thelancet.com", "nature.com"],
+      "excluded_domains": ["reddit.com", "quora.com"],
+      "keywords": ["clinical trial", "treatment guidelines", "evidence"],
+      "temporal": "balanced",
+      "restrictive": false,
+      "schema_hint": null
+    },
+    "science": {
+      "description": "Research papers, experiments, technical breakthroughs",
+      "required_domains": ["nature.com"],
+      "preferred_domains": ["arxiv.org", "nature.com", "science.org", "nist.gov", "pubmed.ncbi.nlm.nih.gov"],
+      "boost_domains": ["arxiv.org", "nature.com", "science.org", "nist.gov", "pubmed.ncbi.nlm.nih.gov", "ieee.org", "acm.org", "sciencedirect.com"],
+      "excluded_domains": [],
+      "keywords": ["research", "study", "experiment"],
+      "temporal": "balanced",
+      "restrictive": false,
+      "schema_hint": null
+    },
+    "regulatory": {
+      "description": "Laws, regulations, compliance, government policy",
+      "required_domains": ["europa.eu", "ftc.gov"],
+      "preferred_domains": ["europa.eu", "ftc.gov", "congress.gov", "gov.uk", "senate.gov", "state.gov", "ec.europa.eu"],
+      "boost_domains": ["europa.eu", "ftc.gov", "congress.gov", "gov.uk", "senate.gov", "state.gov", "ec.europa.eu", "loc.gov", "federalregister.gov"],
+      "excluded_domains": [],
+      "keywords": ["regulation", "compliance", "policy"],
+      "temporal": "fresh",
+      "restrictive": false,
+      "schema_hint": null
+    },
+    "historical": {
+      "description": "Past events, historical figures, archival facts",
+      "required_domains": ["wikipedia.org"],
+      "preferred_domains": [],
+      "boost_domains": ["wikipedia.org", "britannica.com", "archive.org", "loc.gov", "smithsonianmag.com"],
+      "excluded_domains": [],
+      "keywords": ["history", "archive", "timeline"],
+      "temporal": "none",
+      "restrictive": false,
+      "schema_hint": null
+    },
+    "general": {
+      "description": "Default fallback profile",
+      "required_domains": [],
+      "preferred_domains": [],
+      "boost_domains": ["wikipedia.org", "reuters.com", "bbc.com"],
+      "excluded_domains": [],
+      "keywords": [],
+      "temporal": "balanced",
+      "restrictive": false,
+      "schema_hint": null
+    }
+  }
+}

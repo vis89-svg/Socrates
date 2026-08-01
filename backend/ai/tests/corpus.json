@@ -1,0 +1,108 @@
+{
+  "categories": {
+    "ai_hardware": [
+      "B200 memory bandwidth vs H200",
+      "RTX 5090 specifications",
+      "NVIDIA H100 TDP and power consumption",
+      "AMD MI350X memory and architecture",
+      "Google TPU v7 performance vs H100",
+      "NVIDIA GB300 NVLink interconnect details",
+      "B300 release date and availability"
+    ],
+    "cpu": [
+      "Intel Core Ultra 9 285K specs",
+      "AMD EPYC 9755 core count and clock speed",
+      "Apple M5 chip performance",
+      "Qualcomm Snapdragon X Elite vs Apple M4",
+      "Intel Xeon 6980P memory bandwidth"
+    ],
+    "phones": [
+      "iPhone 17 Pro camera specifications",
+      "Samsung Galaxy S26 battery and screen",
+      "Google Pixel 10 processor",
+      "OnePlus 15 specifications and price"
+    ],
+    "companies": [
+      "OpenAI latest funding round",
+      "NVIDIA quarterly revenue 2026",
+      "TSMC Arizona fab progress",
+      "Anthropic Claude company overview",
+      "Meta AI division leadership",
+      "Qualcomm revenue and market position"
+    ],
+    "recent_news": [
+      "latest NVIDIA announcement this month",
+      "new LLM release 2026",
+      "EU AI Act implementation update",
+      "OpenAI GPT-6 announcement",
+      "AMD earnings last quarter"
+    ],
+    "historical": [
+      "Apollo 11 moon landing details",
+      "ENIAC computer specifications",
+      "original iPhone 2007 launch details"
+    ],
+    "programming": [
+      "python asyncio tutorial",
+      "Django streaming responses example",
+      "Rust ownership explained",
+      "SQLite FTS5 full text search"
+    ],
+    "science": [
+      "nuclear fusion ignition milestone",
+      "mRNA vaccine technology explained",
+      "JWST exoplanet discoveries",
+      "quantum supremacy claims"
+    ],
+    "general": [
+      "best laptop 2026 under $1000",
+      "coffee and health benefits",
+      "home solar panel costs",
+      "electric vehicles market share 2026"
+    ]
+  },
+  "expected_intent": {
+    "B200 memory bandwidth vs H200": "hardware",
+    "RTX 5090 specifications": "hardware",
+    "NVIDIA H100 TDP and power consumption": "hardware",
+    "AMD MI350X memory and architecture": "hardware",
+    "Google TPU v7 performance vs H100": "hardware",
+    "NVIDIA GB300 NVLink interconnect details": "hardware",
+    "B300 release date and availability": "hardware",
+    "Intel Core Ultra 9 285K specs": "hardware",
+    "AMD EPYC 9755 core count and clock speed": "hardware",
+    "Apple M5 chip performance": "hardware",
+    "Qualcomm Snapdragon X Elite vs Apple M4": "hardware",
+    "Intel Xeon 6980P memory bandwidth": "hardware",
+    "iPhone 17 Pro camera specifications": "hardware",
+    "Samsung Galaxy S26 battery and screen": "hardware",
+    "Google Pixel 10 processor": "hardware",
+    "OnePlus 15 specifications and price": "hardware",
+    "OpenAI latest funding round": "investment",
+    "NVIDIA quarterly revenue 2026": "investment",
+    "TSMC Arizona fab progress": "company",
+    "Anthropic Claude company overview": "company",
+    "Meta AI division leadership": "company",
+    "Qualcomm revenue and market position": "investment",
+    "latest NVIDIA announcement this month": "news",
+    "new LLM release 2026": "news",
+    "EU AI Act implementation update": "regulatory",
+    "OpenAI GPT-6 announcement": "news",
+    "AMD earnings last quarter": "investment",
+    "Apollo 11 moon landing details": "historical",
+    "ENIAC computer specifications": "historical",
+    "original iPhone 2007 launch details": "historical",
+    "python asyncio tutorial": "technical",
+    "Django streaming responses example": "technical",
+    "Rust ownership explained": "technical",
+    "SQLite FTS5 full text search": "technical",
+    "nuclear fusion ignition milestone": "science",
+    "mRNA vaccine technology explained": "medical",
+    "JWST exoplanet discoveries": "science",
+    "quantum supremacy claims": "science",
+    "best laptop 2026 under $1000": "hardware",
+    "coffee and health benefits": "medical",
+    "home solar panel costs": "general",
+    "electric vehicles market share 2026": "general"
+  }
+}
