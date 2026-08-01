@@ -1,13 +1,15 @@
 from django.db import models
 from django.conf import settings
-from django.contrib.postgres.search import SearchVector, SearchQuery
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 
 
 class MemoryQuerySet(models.QuerySet):
     def search(self, query):
+        vector = SearchVector('key', 'content', config='english')
+        search_query = SearchQuery(query, config='english')
         return self.annotate(
-            rank=SearchVector('key', 'content', config='english').search(SearchQuery(query, config='english'))
-        ).filter(rank__gte=0.1).order_by('-rank', '-importance')
+            rank=SearchRank(vector, search_query)
+        ).filter(rank__gte=0.01).order_by('-rank', '-importance')
 
 
 class Memory(models.Model):

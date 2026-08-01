@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from chat.views import SharePageView, PublicShareView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -8,4 +11,6 @@ urlpatterns = [
     path('api/ai/', include('ai.urls')),
     path('api/memory/', include('memory.urls')),
     path('api/files/', include('files.urls')),
-]
+    path('share/<uuid:token>/', SharePageView.as_view(), name='share-page'),
+    path('api/share/<uuid:token>/', PublicShareView.as_view(), name='share-api'),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

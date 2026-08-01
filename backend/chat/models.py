@@ -5,6 +5,8 @@ from django.conf import settings
 class Conversation(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conversations')
     title = models.CharField(max_length=255, blank=True, default='')
+    share_token = models.UUIDField(null=True, blank=True, unique=True, default=None)
+    share_created_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

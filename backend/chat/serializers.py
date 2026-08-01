@@ -32,8 +32,12 @@ class ConversationListSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def get_last_message(self, obj):
+        if getattr(obj, '_last_message', None) is not None:
+            return obj._last_message[:100]
         msg = obj.messages.last()
         return msg.content[:100] if msg else None
 
     def get_message_count(self, obj):
+        if getattr(obj, '_message_count', None) is not None:
+            return obj._message_count
         return obj.messages.count()
