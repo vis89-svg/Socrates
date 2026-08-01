@@ -131,6 +131,8 @@ STORAGES = {
 MEDIA_URL = '/uploads/'
 MEDIA_ROOT = str(BASE_DIR / 'uploads')
 
+FRONTEND_ENABLED = env('FRONTEND_ENABLED', default=True)
+
 MODEL_PATH = env('MODEL_PATH', default='')
 MODEL_CONTEXT_SIZE = env('MODEL_CONTEXT_SIZE')
 MODEL_N_THREADS = env('MODEL_N_THREADS')
