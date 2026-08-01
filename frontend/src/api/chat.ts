@@ -1,4 +1,4 @@
-import { apiFetch, API_BASE, getToken } from './client'
+import { apiFetch, API_BASE, clearTokens, fireSessionExpired, getToken, tryRefreshToken } from './client'
 import type {
   Conversation,
   ConversationSummary,
@@ -46,14 +46,27 @@ export async function patchMessage(convId: number, msgId: number, content: strin
 }
 
 export async function exportMessage(convId: number, msgId: number, format: 'docx' | 'pdf'): Promise<Blob> {
-  const response = await fetch(`${API_BASE}/chat/conversations/${convId}/messages/${msgId}/export/`, {
+  const buildRequest = (token: string | null) => ({
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${getToken() || ''}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ format }),
   })
+  let response = await fetch(
+    `${API_BASE}/chat/conversations/${convId}/messages/${msgId}/export/`,
+    buildRequest(getToken()),
+  )
+  if (response.status === 401) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      response = await fetch(
+        `${API_BASE}/chat/conversations/${convId}/messages/${msgId}/export/`,
+        buildRequest(refreshed),
+      )
+    }
+  }
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.blob()
 }
@@ -70,14 +83,32 @@ export async function shareConversation(convId: number, active: boolean): Promis
 }
 
 export async function streamChat(convId: number, request: StreamRequest): Promise<Response> {
-  const headers = new Headers({ 'Content-Type': 'application/json' })
-  const token = getToken()
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  return fetch(`${API_BASE}/chat/conversations/${convId}/stream/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(request),
-  })
+  const buildRequest = (token: string | null) => {
+    const headers = new Headers({ 'Content-Type': 'application/json' })
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(request),
+    }
+  }
+  let response = await fetch(
+    `${API_BASE}/chat/conversations/${convId}/stream/`,
+    buildRequest(getToken()),
+  )
+  if (response.status === 401) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      response = await fetch(
+        `${API_BASE}/chat/conversations/${convId}/stream/`,
+        buildRequest(refreshed),
+      )
+    } else {
+      clearTokens()
+      fireSessionExpired()
+    }
+  }
+  return response
 }
 
 export async function readStream(

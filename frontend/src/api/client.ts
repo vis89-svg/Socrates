@@ -39,6 +39,24 @@ export function fireSessionExpired(): void {
   window.dispatchEvent(new CustomEvent('owl-session-expired'))
 }
 
+export async function tryRefreshToken(): Promise<string | null> {
+  const refresh = getRefreshToken()
+  if (!refresh) return null
+  try {
+    const rr = await fetch(`${API_BASE}/auth/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+    })
+    if (!rr.ok) return null
+    const data = (await rr.json()) as { access: string }
+    saveTokens(data.access, refresh)
+    return data.access
+  } catch {
+    return null
+  }
+}
+
 export async function apiFetch<T = unknown>(
   url: string,
   options: RequestInit = {},
@@ -53,26 +71,10 @@ export async function apiFetch<T = unknown>(
   let response = await fetch(`${API_BASE}${url}`, { ...options, headers })
 
   if (response.status === 401 && !url.startsWith('/auth/')) {
-    const refresh = getRefreshToken()
-    if (refresh) {
-      try {
-        const rr = await fetch(`${API_BASE}/auth/refresh/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh }),
-        })
-        if (rr.ok) {
-          const data = (await rr.json()) as { access: string }
-          saveTokens(data.access, refresh)
-          headers.set('Authorization', `Bearer ${data.access}`)
-          response = await fetch(`${API_BASE}${url}`, { ...options, headers })
-        } else {
-          throw new ApiError(401, 'Session expired')
-        }
-      } catch (err) {
-        if (err instanceof ApiError) throw err
-        throw new ApiError(401, 'Session expired')
-      }
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      headers.set('Authorization', `Bearer ${refreshed}`)
+      response = await fetch(`${API_BASE}${url}`, { ...options, headers })
     }
     if (response.status === 401) {
       clearTokens()
