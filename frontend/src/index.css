@@ -1,0 +1,178 @@
+:root {
+  --bg-page: #fdf6ec;
+  --bg-page-2: #f7e8d2;
+  --bg-surface: #ffffff;
+  --bg-sidebar: #fffaf2;
+  --bg-elevated: #ffffff;
+  --text-primary: #3a2a1a;
+  --text-secondary: #6b5a45;
+  --text-muted: #9a8a74;
+  --border: #ead9c0;
+  --border-light: #f1e5d0;
+  --accent: #e08a2e;
+  --accent-hover: #c9761f;
+  --accent-soft: #fdf0dd;
+  --accent-glow: rgba(224, 138, 46, 0.28);
+  --bubble-user-grad: linear-gradient(135deg, #e08a2e, #d97706);
+  --bubble-user-text: #ffffff;
+  --bubble-assistant-bg: #ffffff;
+  --bubble-assistant-text: #3a2a1a;
+  --bubble-system-bg: #fff3cd;
+  --bubble-system-text: #856404;
+  --bubble-file-bg: #f0f8ff;
+  --danger: #e74c3c;
+  --danger-hover: #c0392b;
+  --secondary: #a08c6f;
+  --secondary-hover: #8a7658;
+  --conv-hover: #f6ecd9;
+  --conv-active: #fdebd2;
+  --toggle-bg: #d8c6a8;
+  --scrollbar: #d8c6a8;
+  --shadow-soft: 0 2px 14px rgba(90, 60, 25, 0.08);
+  --shadow-float: 0 10px 34px rgba(90, 60, 25, 0.16);
+  --glass: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme='dark'] {
+  --bg-page: #12131f;
+  --bg-page-2: #1a1c2e;
+  --bg-surface: #1c1e30;
+  --bg-sidebar: #171826;
+  --bg-elevated: #22243a;
+  --text-primary: #f0e9dd;
+  --text-secondary: #c3b8a5;
+  --text-muted: #8a8172;
+  --border: #2e3048;
+  --border-light: #262840;
+  --accent: #ffb454;
+  --accent-hover: #ffc873;
+  --accent-soft: #2e2637;
+  --accent-glow: rgba(255, 180, 84, 0.22);
+  --bubble-assistant-bg: #22243a;
+  --bubble-assistant-text: #f0e9dd;
+  --bubble-system-bg: #3a2a1a;
+  --bubble-system-text: #ffd700;
+  --bubble-file-bg: #1a2a3e;
+  --danger: #ff4757;
+  --danger-hover: #e03e4e;
+  --secondary: #636e72;
+  --secondary-hover: #535c5f;
+  --conv-hover: #20223a;
+  --conv-active: #2c2a3f;
+  --toggle-bg: #3c3e58;
+  --scrollbar: #3c3e58;
+  --shadow-soft: 0 2px 14px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --glass: rgba(28, 30, 48, 0.72);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+}
+.btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--secondary);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--secondary-hover);
+  box-shadow: none;
+}
+
+.btn-danger {
+  background: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+  box-shadow: none;
+}
+
+.tool-btn {
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.tool-btn:hover:not(:disabled) {
+  background: var(--conv-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tool-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hidden {
+  display: none !important;
+}

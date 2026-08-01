@@ -1,0 +1,240 @@
+.conf-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.3rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.conf-High { background: #d4edda; color: #155724; }
+.conf-Medium { background: #fff3cd; color: #856404; }
+.conf-Low { background: #f8d7da; color: #721c24; }
+.conf-None { background: #e2e3e5; color: #383d41; }
+
+.src-ref {
+  font-size: 0.7rem;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.src-ref:hover {
+  text-decoration: underline;
+}
+
+.src-ref.link {
+  text-decoration: none;
+  background: var(--conv-active);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0 0.3rem;
+  color: var(--accent);
+}
+
+.src-ref.link:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.bubble h3 {
+  margin: 0.8rem 0 0.4rem;
+  font-size: 1rem;
+}
+
+.bubble h4 {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.9rem;
+}
+
+.bubble p {
+  margin: 0.3rem 0;
+}
+
+.bubble hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.8rem 0;
+}
+
+.bubble table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.bubble table td {
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.5rem;
+}
+
+.bubble table tr:nth-child(even) {
+  background: var(--conv-hover);
+}
+
+.table-wrap {
+  margin: 0.5rem 0;
+}
+
+.table-tools {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-bottom: 0.2rem;
+}
+
+.table-btn {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  background: var(--bg-page);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.table-btn:hover {
+  background: var(--conv-active);
+  border-color: var(--accent);
+}
+
+.evidence-panel {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  background: var(--bg-page);
+}
+
+.evidence-panel summary {
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  user-select: none;
+  list-style: none;
+}
+
+.evidence-panel summary:hover {
+  background: var(--conv-hover);
+}
+
+.evidence-list {
+  padding: 0.2rem 0.6rem 0.6rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.evidence-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--border-light);
+}
+
+.evidence-item:first-child {
+  border-top: none;
+}
+
+.evidence-num {
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+  width: 1.2rem;
+  text-align: right;
+}
+
+.evidence-title {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.evidence-title:hover {
+  text-decoration: underline;
+}
+
+.evidence-meta {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.evidence-domain {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.75); }
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-state h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  max-width: 340px;
+  line-height: 1.5;
+}
+
+.empty-state .suggestion-chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 460px;
+}
+
+.suggestion-chip {
+  padding: 0.45rem 0.9rem;
+  border-radius: 20px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.suggestion-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}

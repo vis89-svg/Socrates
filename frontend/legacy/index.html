@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socrates Chat</title>
+<style>
+:root {
+  --bg-page: #f0f2f5;
+  --bg-surface: #fff;
+  --bg-sidebar: #fff;
+  --text-primary: #1c1e21;
+  --text-secondary: #555;
+  --text-muted: #666;
+  --border: #ddd;
+  --border-light: #e0e0e0;
+  --bubble-user-bg: #1877f2;
+  --bubble-user-text: #fff;
+  --bubble-assistant-bg: #e4e6eb;
+  --bubble-assistant-text: #1c1e21;
+  --bubble-system-bg: #fff3cd;
+  --bubble-system-text: #856404;
+  --bubble-file-bg: #f0f8ff;
+  --accent: #1877f2;
+  --accent-hover: #166fe5;
+  --danger: #e74c3c;
+  --danger-hover: #c0392b;
+  --secondary: #6c757d;
+  --secondary-hover: #5a6268;
+  --conv-hover: #f0f2f5;
+  --conv-active: #e7f3ff;
+  --toggle-bg: #ccc;
+}
+
+[data-theme="dark"] {
+  --bg-page: #1a1a2e;
+  --bg-surface: #16213e;
+  --bg-sidebar: #0f3460;
+  --text-primary: #e4e6eb;
+  --text-secondary: #aaa;
+  --text-muted: #888;
+  --border: #2a2a4a;
+  --border-light: #2a2a4a;
+  --bubble-assistant-bg: #2a2a4a;
+  --bubble-assistant-text: #e4e6eb;
+  --bubble-system-bg: #3a2a1a;
+  --bubble-system-text: #ffd700;
+  --bubble-file-bg: #1a2a3e;
+  --accent: #4da6ff;
+  --accent-hover: #3d96ef;
+  --danger: #ff4757;
+  --danger-hover: #e03e4e;
+  --secondary: #636e72;
+  --secondary-hover: #535c5f;
+  --conv-hover: #1a2a4a;
+  --conv-active: #1a3a6a;
+  --toggle-bg: #4a4a6a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; display: flex; background: var(--bg-page); color: var(--text-primary); transition: background 0.2s, color 0.2s; }
+h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--text-primary); }
+input, textarea { width: 100%; padding: 0.6rem; margin-bottom: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--bg-surface); color: var(--text-primary); }
+input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+button { padding: 0.6rem 1.2rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+button:hover { background: var(--accent-hover); }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-danger { background: var(--danger); }
+.btn-danger:hover { background: var(--danger-hover); }
+.btn-secondary { background: var(--secondary); }
+.btn-secondary:hover { background: var(--secondary-hover); }
+.hidden { display: none !important; }
+#app { display: flex; width: 100%; height: 100vh; }
+#sidebar { width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border-light); display: flex; flex-direction: column; padding: 1rem; }
+#conv-list { flex: 1; overflow-y: auto; margin-bottom: 1rem; }
+.conv-item { padding: 0.6rem; border-radius: 6px; cursor: pointer; margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: center; color: var(--text-primary); }
+.conv-item:hover { background: var(--conv-hover); }
+.conv-item.active { background: var(--conv-active); }
+.conv-item .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.conv-item .del { color: var(--text-muted); cursor: pointer; padding: 0 0.3rem; font-size: 0.8rem; }
+.conv-item .del:hover { color: var(--danger); }
+#sidebar-actions { display: flex; gap: 0.5rem; }
+#sidebar-actions button { flex: 1; }
+#main { flex: 1; display: flex; flex-direction: column; }
+#chat-header { padding: 0.75rem 1.5rem; background: var(--bg-surface); border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; }
+#chat-header h3 { font-size: 1rem; color: var(--text-primary); }
+#header-right { display: flex; align-items: center; gap: 0.6rem; }
+#user-info { font-size: 0.85rem; color: var(--text-muted); }
+#theme-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); padding: 0.3rem 0.5rem; font-size: 1rem; line-height: 1; border-radius: 6px; cursor: pointer; }
+#theme-btn:hover { background: var(--conv-hover); }
+#messages { flex: 1; overflow-y: auto; padding: 1.5rem; }
+.msg { margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 0.3rem; }
+.msg.user { justify-content: flex-end; }
+.msg .bubble { max-width: 70%; padding: 0.7rem 1rem; border-radius: 18px; line-height: 1.4; font-size: 0.95rem; word-break: break-word; }
+.msg.user .bubble { background: var(--bubble-user-bg); color: var(--bubble-user-text); border-bottom-right-radius: 4px; }
+.msg.assistant .bubble { background: var(--bubble-assistant-bg); color: var(--bubble-assistant-text); border-bottom-left-radius: 4px; }
+.msg.system .bubble { background: var(--bubble-system-bg); color: var(--bubble-system-text); border-bottom-left-radius: 4px; margin: 0 auto; text-align: center; max-width: 90%; }
+.msg.file .bubble { background: var(--bubble-file-bg); color: var(--text-primary); border-bottom-left-radius: 4px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+.msg.file .bubble .file-icon { font-size: 1.2rem; }
+.msg.file .bubble .file-status { font-size: 0.75rem; color: var(--text-muted); }
+.typing .bubble::after { content: '...'; animation: dots 1.5s steps(4, end) infinite; }
+@keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
+.edit-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.3rem; font-size: 0.8rem; opacity: 0; transition: opacity 0.15s; line-height: 1; flex-shrink: 0; margin-top: 0.5rem; border-radius: 4px; }
+.conf-badge { display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; margin-left: 0.3rem; font-weight: 600; vertical-align: middle; }
+.conf-High { background: #d4edda; color: #155724; }
+.conf-Medium { background: #fff3cd; color: #856404; }
+.conf-Low { background: #f8d7da; color: #721c24; }
+.conf-None { background: #e2e3e5; color: #383d41; }
+.src-ref { font-size: 0.7rem; color: #1877f2; cursor: pointer; font-weight: 600; }
+.src-ref:hover { text-decoration: underline; }
+.src-ref.link { text-decoration: none; background: var(--conv-active); border: 1px solid var(--accent); border-radius: 8px; padding: 0 0.3rem; }
+.src-ref.link:hover { background: var(--accent); color: #fff; }
+.evidence-panel { border: 1px solid var(--border-light); border-radius: 8px; margin-top: 0.5rem; font-size: 0.8rem; background: var(--bg-page); }
+.evidence-panel summary { cursor: pointer; padding: 0.4rem 0.6rem; font-weight: 600; color: var(--text-secondary); user-select: none; }
+.evidence-panel summary:hover { background: var(--conv-hover); }
+.evidence-list { padding: 0.2rem 0.6rem 0.6rem; max-height: 220px; overflow-y: auto; }
+.evidence-item { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0; border-top: 1px solid var(--border-light); }
+.evidence-item:first-child { border-top: none; }
+.evidence-num { font-weight: 700; color: var(--accent); flex-shrink: 0; width: 1.2rem; text-align: right; }
+.evidence-title { color: var(--text-primary); text-decoration: none; }
+.evidence-title:hover { text-decoration: underline; }
+.evidence-meta { color: var(--text-muted); font-size: 0.72rem; }
+.evidence-domain { color: var(--text-muted); font-size: 0.72rem; white-space: nowrap; }
+.bubble table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 0.85rem; }
+.bubble table td { border: 1px solid var(--border); padding: 0.3rem 0.5rem; }
+.bubble table tr:nth-child(even) { background: var(--conv-hover); }
+.table-wrap { margin: 0.5rem 0; }
+.table-tools { display: flex; gap: 0.4rem; justify-content: flex-end; margin-bottom: 0.2rem; }
+.table-btn { padding: 0.2rem 0.6rem; font-size: 0.7rem; background: var(--bg-page); color: var(--accent); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; line-height: 1.2; }
+.table-btn:hover { background: var(--conv-active); }
+#share-dialog { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 1000; }
+#share-dialog .card { background: var(--bg-surface); padding: 1.5rem; border-radius: 12px; width: 460px; max-width: 90vw; }
+#share-dialog .row { display: flex; gap: 0.5rem; align-items: center; }
+#share-dialog .row input { margin-bottom: 0; flex: 1; }
+#share-dialog .actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: space-between; }
+.bubble h3 { margin: 0.8rem 0 0.4rem; font-size: 1rem; }
+.bubble h4 { margin: 0.6rem 0 0.3rem; font-size: 0.9rem; }
+.bubble p { margin: 0.3rem 0; }
+.bubble hr { border: none; border-top: 1px solid var(--border); margin: 0.8rem 0; }
+.msg.user:hover .edit-btn { opacity: 0.6; }
+.edit-btn:hover { opacity: 1 !important; background: var(--conv-hover); }
+.msg-tools { display: flex; gap: 0.35rem; margin-top: 0.3rem; opacity: 0; transition: opacity 0.15s; }
+.msg.assistant:hover .msg-tools, .msg-tools:focus-within { opacity: 1; }
+.msg-tools .tool-btn { padding: 0.2rem 0.55rem; font-size: 0.72rem; line-height: 1.3; }
+#input-area { padding: 0.75rem 1.5rem; background: var(--bg-surface); border-top: 1px solid var(--border-light); }
+#input-row { display: flex; gap: 0.5rem; align-items: center; }
+#input-row input { margin-bottom: 0; flex: 1; }
+#input-row button { white-space: nowrap; }
+#input-tools { display: flex; gap: 0.5rem; align-items: center; padding-bottom: 0.4rem; }
+#cancel-edit { display: none; background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 0.1rem 0.3rem; line-height: 1; border-radius: 4px; }
+#cancel-edit:hover { color: var(--danger); background: var(--conv-hover); }
+#edit-indicator { display: none; font-size: 0.75rem; color: var(--text-muted); }
+.tool-btn { padding: 0.3rem 0.6rem; background: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85rem; line-height: 1; display: flex; align-items: center; gap: 0.3rem; }
+.tool-btn:hover { background: var(--conv-hover); }
+.tool-btn:disabled { opacity: 0.5; cursor: not-allowed; background: transparent; }
+.toggle-wrap { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer; user-select: none; padding: 0.3rem 0.5rem; border-radius: 6px; border: 1px solid transparent; }
+.toggle-wrap:hover { background: var(--conv-hover); border-color: var(--border); }
+.toggle-wrap.active { color: var(--accent); border-color: var(--accent); background: var(--conv-active); }
+.toggle-track { width: 32px; height: 18px; background: var(--toggle-bg); border-radius: 10px; position: relative; transition: background 0.2s; flex-shrink: 0; }
+.toggle-wrap.active .toggle-track { background: var(--accent); }
+.toggle-knob { width: 14px; height: 14px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: left 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.toggle-wrap.active .toggle-knob { left: 16px; }
+#auth-screen { display: flex; align-items: center; justify-content: center; height: 100vh; width: 100%; }
+#auth-screen .card { background: var(--bg-surface); padding: 2rem; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); width: 360px; }
+#auth-screen .card h1 { text-align: center; margin-bottom: 1.5rem; color: var(--text-primary); }
+#auth-screen .card p { text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); }
+#auth-screen .card p a { color: var(--accent); cursor: pointer; }
+#auth-screen .card p a:hover { text-decoration: underline; }
+#auth-error { color: var(--danger); font-size: 0.85rem; margin-bottom: 0.75rem; display: none; }
+#error-toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: var(--danger); color: #fff; padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.85rem; z-index: 1000; display: none; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+#attachments { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-bottom: 0.3rem; }
+.attach-chip { display: inline-flex; align-items: center; gap: 0.3rem; background: var(--conv-active); border: 1px solid var(--accent); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.8rem; color: var(--text-primary); }
+.attach-chip-del { cursor: pointer; color: var(--text-muted); font-size: 1rem; line-height: 1; padding: 0 0.1rem; }
+.attach-chip-del:hover { color: var(--danger); }
+.status-bar { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text-muted); }
+.status-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; display: inline-block; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+</style>
+</head>
+<body>
+<div id="auth-screen">
+  <div class="card">
+    <h1>Socrates</h1>
+    <div id="auth-error"></div>
+    <form id="login-form">
+      <input type="text" id="login-username" placeholder="Username" required>
+      <input type="password" id="login-password" placeholder="Password" required>
+      <button type="submit" style="width:100%">Sign In</button>
+    </form>
+    <p>Don't have an account? <a id="show-register">Create one</a></p>
+    <form id="register-form" class="hidden">
+      <input type="text" id="reg-username" placeholder="Username" required>
+      <input type="email" id="reg-email" placeholder="Email" required>
+      <input type="password" id="reg-password" placeholder="Password" required>
+      <button type="submit" style="width:100%">Register</button>
+    </form>
+    <p><a id="show-login" class="hidden">Back to sign in</a></p>
+  </div>
+</div>
+<div id="app" class="hidden">
+  <div id="sidebar">
+    <h2>Conversations</h2>
+    <div id="conv-list"></div>
+    <div id="sidebar-actions">
+      <button id="new-conv">+ New Chat</button>
+      <button id="logout-btn" class="btn-secondary">Logout</button>
+    </div>
+  </div>
+  <div id="main">
+    <div id="chat-header">
+      <h3 id="conv-title">Select a conversation</h3>
+      <div id="header-right">
+        <button id="share-btn" class="btn-secondary" disabled>Share</button>
+        <button id="theme-btn" title="Toggle dark mode">☀️</button>
+        <span id="user-info"></span>
+      </div>
+    </div>
+    <div id="messages">
+      <div class="msg assistant"><div class="bubble">Select a conversation or create a new one to start chatting.</div></div>
+    </div>
+    <div id="input-area">
+      <div id="input-tools">
+        <span id="web-toggle" class="toggle-wrap" title="Search the web for current information">
+          <span class="toggle-track"><span class="toggle-knob"></span></span>
+          <span class="toggle-label">Search Web</span>
+        </span>
+        <button id="attach-btn" class="tool-btn" title="Attach file" disabled>+ Attach file</button>
+        <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" style="display:none">
+      </div>
+      <div id="input-row">
+        <div id="attachments"></div>
+        <span id="edit-indicator">Editing message</span>
+        <input type="text" id="msg-input" placeholder="Type a message..." disabled>
+        <button id="cancel-edit" title="Cancel edit">&times;</button>
+        <button id="send-btn" disabled>Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="error-toast"></div>
+<div id="share-dialog">
+  <div class="card">
+    <h2>Share conversation</h2>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem">Anyone with this link can view this conversation.</p>
+    <div class="row">
+      <input type="text" id="share-link" readonly>
+      <button id="share-copy" class="btn-secondary">Copy</button>
+    </div>
+    <div class="actions">
+      <button id="share-stop" class="btn-danger" style="display:none">Stop sharing</button>
+      <button id="share-close" class="btn-secondary">Close</button>
+    </div>
+  </div>
+</div>
+<script>
+const API = 'http://localhost:8000/api';
+function el(id) { return document.getElementById(id); }
+const authScreen = el('auth-screen');
+const appScreen = el('app');
+let state = { token: null, refreshToken: null, user: null, conversations: [], currentConv: null, streaming: false, webSearch: false, editingMsgId: null, citationUrls: {}, citationsDiv: null };
+
+// Persist auth tokens
+function saveTokens(access, refresh) {
+  state.token = access;
+  state.refreshToken = refresh;
+  localStorage.setItem('socrates-token', access);
+  if (refresh) localStorage.setItem('socrates-refresh', refresh);
+}
+function clearTokens() {
+  state.token = null;
+  state.refreshToken = null;
+  localStorage.removeItem('socrates-token');
+  localStorage.removeItem('socrates-refresh');
+}
+function loadTokens() {
+  state.token = localStorage.getItem('socrates-token');
+  state.refreshToken = localStorage.getItem('socrates-refresh');
+}
+
+async function authFetch(url, options = {}) {
+  if (!options.headers) options.headers = {};
+  const doFetch = (token) => {
+    const h = { ...options.headers, Authorization: `Bearer ${token || state.token}` };
+    return fetch(url, { ...options, headers: h });
+  };
+  let r = await doFetch();
+  if (r.status === 401 && state.refreshToken) {
+    try {
+      const refreshR = await fetch(`${API}/auth/refresh/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: state.refreshToken })
+      });
+      if (refreshR.ok) {
+        const d = await refreshR.json();
+        saveTokens(d.access, state.refreshToken);
+        r = await doFetch(d.access);
+      } else {
+        clearTokens();
+        hide(appScreen); show(authScreen);
+        throw new Error('Session expired. Please log in again.');
+      }
+    } catch (err) {
+      if (err.message === 'Session expired. Please log in again.') throw err;
+      clearTokens();
+      hide(appScreen); show(authScreen);
+      throw new Error('Session expired. Please log in again.');
+    }
+  }
+  return r;
+}
+function show(e) { e.classList.remove('hidden'); }
+
+// Dark mode
+const savedTheme = localStorage.getItem('socrates-theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+el('theme-btn').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+el('theme-btn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('socrates-theme', next);
+  el('theme-btn').textContent = next === 'dark' ? '🌙' : '☀️';
+};
+function hide(e) { e.classList.add('hidden'); }
+
+function showError(msg) {
+  const t = el('error-toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 5000);
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text; return d.innerHTML;
+}
+
+function renderMarkdown(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/((?:^\|.*\|\s*$\n?)+)/gm, (block) => {
+    const rows = [];
+    for (const line of block.trim().split('\n')) {
+      const cells = line.slice(1, -1).split('|').map(c => c.trim());
+      if (cells.length === 1 && cells[0] === '') continue;
+      if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue;
+      rows.push(cells);
+    }
+    if (!rows.length) return '';
+    const id = 't' + (window.__tableSeq = (window.__tableSeq || 0) + 1);
+    window.__tableStore = window.__tableStore || {};
+    window.__tableStore[id] = rows;
+    const body = rows.map(r => '<tr><td>' + r.join('</td><td>') + '</td></tr>').join('');
+    return `<div class="table-wrap" data-table-id="${id}"><div class="table-tools">` +
+      `<button type="button" class="table-btn table-copy" title="Copy as TSV (pastes into Excel)">Copy</button>` +
+      `<button type="button" class="table-btn table-csv" title="Download as CSV">CSV</button></div>` +
+      `<table>${body}</table></div>`;
+  });
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\[Confidence: (High|Medium|Low|None)\]/g, '<span class="conf-badge conf-$1">$1</span>');
+  html = html.replace(/\[Source\s+(\d+)\]/g, (m, n) => {
+    const c = state.citationUrls[n];
+    if (c && c.url) {
+      const domain = c.url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+      return `<a class="src-ref link" href="${escapeHtml(c.url)}" target="_blank" rel="noopener" title="${escapeHtml(c.title)}">[${escapeHtml(domain)}]</a>`;
+    }
+    return `<sup class="src-ref">[${n}]</sup>`;
+  });
+  html = html.replace(/---/g, '<hr>');
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p><\/p>/g, '');
+  html = html.replace(/<table><\/table>/g, '');
+  return html;
+}
+
+function tableRows(id) {
+  return (window.__tableStore || {})[id] || [];
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob(['\ufeff' + content], {type: mime || 'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+el('messages').addEventListener('click', (e) => {
+  const wrap = e.target.closest('.table-wrap');
+  if (!wrap) return;
+  const rows = tableRows(wrap.dataset.tableId);
+  if (!rows.length) return;
+  const btn = e.target.closest('.table-btn');
+  if (!btn) return;
+  if (btn.classList.contains('table-copy')) {
+    const tsv = rows.map(r => r.join('\t')).join('\n');
+    navigator.clipboard.writeText(tsv).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    }).catch(() => showError('Copy failed'));
+  } else if (btn.classList.contains('table-csv')) {
+    const csv = rows.map(r => r.map(c => /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c).join(',')).join('\r\n');
+    downloadBlob(csv, 'table.csv', 'text/csv;charset=utf-8');
+  }
+});
+
+function renderEvidence(evidence) {
+  const details = document.createElement('details');
+  details.className = 'evidence-panel';
+  let list = '';
+  for (let i = 0; i < evidence.length; i++) {
+    const e = evidence[i];
+    const domain = e.url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+    const meta = e.published_date ? ` · ${e.published_date}` : '';
+    list += `<div class="evidence-item"><span class="evidence-num">${i + 1}</span>` +
+      `<a class="evidence-title" href="${escapeHtml(e.url)}" target="_blank" rel="noopener">${escapeHtml(e.title)}</a>` +
+      `<span class="evidence-meta">${escapeHtml(meta)}</span>` +
+      `<span class="evidence-domain">${escapeHtml(domain)}</span></div>`;
+  }
+  details.innerHTML = `<summary>Evidence — ${evidence.length} sources</summary><div class="evidence-list">${list}</div>`;
+  return details;
+}
+
+function enableInputs(enabled) {
+  ['msg-input', 'send-btn', 'attach-btn', 'web-toggle'].forEach(id => {
+    if (id === 'web-toggle') {
+      el(id).style.pointerEvents = enabled ? '' : 'none';
+      el(id).style.opacity = enabled ? '' : '0.5';
+    } else {
+      el(id).disabled = !enabled;
+    }
+  });
+  el('share-btn').disabled = !enabled;
+  if (enabled) el('msg-input').focus();
+}
+
+// Auth toggle
+el('show-register').onclick = () => {
+  hide(el('login-form')); show(el('register-form'));
+  hide(el('show-register').parentElement); show(el('show-login'));
+};
+el('show-login').onclick = () => {
+  hide(el('register-form')); show(el('login-form'));
+  show(el('show-register').parentElement); hide(el('show-login'));
+};
+
+function showAuthError(msg) {
+  const e = el('auth-error'); e.textContent = msg; e.style.display = 'block';
+}
+
+el('login-form').onsubmit = async (e) => {
+  e.preventDefault();
+  el('auth-error').style.display = 'none';
+  try {
+    const r = await fetch(`${API}/auth/login/`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: el('login-username').value, password: el('login-password').value})
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(Object.values(d).flat().join(', ')); }
+    const d = await r.json();
+    saveTokens(d.access, d.refresh);
+    await Promise.all([fetchUser(), loadConversations()]);
+    hide(authScreen); show(appScreen);
+  } catch (err) { showAuthError(err.message); }
+};
+
+el('register-form').onsubmit = async (e) => {
+  e.preventDefault();
+  el('auth-error').style.display = 'none';
+  try {
+    const r = await fetch(`${API}/auth/register/`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: el('reg-username').value, email: el('reg-email').value, password: el('reg-password').value})
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(Object.values(d).flat().join(', ')); }
+    const r2 = await fetch(`${API}/auth/login/`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: el('reg-username').value, password: el('reg-password').value})
+    });
+    if (!r2.ok) throw new Error('Login after registration failed');
+    const d2 = await r2.json();
+    saveTokens(d2.access, d2.refresh);
+    await Promise.all([fetchUser(), loadConversations()]);
+    hide(authScreen); show(appScreen);
+  } catch (err) { showAuthError(err.message); }
+};
+
+async function fetchUser() {
+  const r = await authFetch(`${API}/auth/me/`);
+  if (!r.ok) throw new Error('Failed to fetch user');
+  state.user = await r.json();
+  el('user-info').textContent = state.user.username;
+}
+
+// Logout
+el('logout-btn').onclick = () => {
+  clearTokens();
+  state.user = null; state.conversations = []; state.currentConv = null; state.streaming = false; state.webSearch = false;
+  hide(appScreen); show(authScreen);
+  el('web-toggle').classList.remove('active');
+  el('login-form').reset(); el('register-form').reset();
+  el('conv-list').innerHTML = '';
+  el('conv-title').textContent = 'Select a conversation';
+  el('messages').innerHTML = '<div class="msg assistant"><div class="bubble">Select a conversation or create a new one to start chatting.</div></div>';
+  enableInputs(false);
+};
+
+// Conversations
+async function loadConversations() {
+  try {
+    const r = await authFetch(`${API}/chat/conversations/`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    state.conversations = data.results || data;
+    renderConvList();
+    if (!state.currentConv && state.conversations.length > 0) {
+      selectConversation(state.conversations[0].id);
+    }
+  } catch (err) { showError('Failed to load conversations'); }
+}
+
+function renderConvList() {
+  const list = el('conv-list'); list.innerHTML = '';
+  for (const conv of state.conversations) {
+    const div = document.createElement('div');
+    div.className = 'conv-item' + (state.currentConv && state.currentConv.id === conv.id ? ' active' : '');
+    div.innerHTML = `<span class="title">${escapeHtml(conv.title || 'New Chat')}</span><span class="del" data-id="${conv.id}">&times;</span>`;
+    div.querySelector('.title').onclick = () => selectConversation(conv.id);
+    div.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteConversation(conv.id); };
+    list.appendChild(div);
+  }
+}
+
+async function selectConversation(id) {
+  try {
+    const r = await authFetch(`${API}/chat/conversations/${id}/`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    state.currentConv = await r.json();
+    el('conv-title').textContent = state.currentConv.title || 'New Chat';
+    enableInputs(true);
+    renderConvList();
+    const container = el('messages'); container.innerHTML = '';
+    for (const msg of state.currentConv.messages || []) {
+      appendMessage(msg.role, msg.content, msg.id);
+    }
+    container.scrollTop = container.scrollHeight;
+  } catch (err) { showError('Failed to select conversation'); }
+}
+
+async function loadMessages(convId) {
+  try {
+    const r = await authFetch(`${API}/chat/conversations/${convId}/messages/`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const msgs = data.results || data;
+    const container = el('messages'); container.innerHTML = '';
+    for (const msg of msgs) {
+      appendMessage(msg.role, msg.content, msg.id);
+    }
+    container.scrollTop = container.scrollHeight;
+  } catch (err) { showError('Failed to load messages'); }
+}
+
+function appendMessage(role, content, msgId) {
+  const container = el('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'user' && msgId) {
+    div.dataset.msgId = msgId;
+    div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div><button class="edit-btn" data-msg-id="${msgId}" title="Edit message">✏️</button>`;
+    div.querySelector('.edit-btn').dataset.content = content;
+  } else if (role === 'assistant' && msgId) {
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = renderMarkdown(content);
+    div.appendChild(bubble);
+    const tools = document.createElement('div');
+    tools.className = 'msg-tools';
+    tools.innerHTML = '<button class="tool-btn msg-export" data-format="docx" title="Download as Word">Word</button>' +
+                      '<button class="tool-btn msg-export" data-format="pdf" title="Download as PDF">PDF</button>';
+    div.appendChild(tools);
+    div.dataset.msgId = msgId;
+  } else {
+    div.innerHTML = `<div class="bubble">${renderMarkdown(content)}</div>`;
+  }
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+el('messages').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.msg-export');
+  if (!btn) return;
+  if (!state.currentConv || state.streaming) return;
+  const msgDiv = btn.closest('.msg');
+  if (!msgDiv || !msgDiv.dataset.msgId) return;
+  const fmt = btn.dataset.format;
+  const msgId = msgDiv.dataset.msgId;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const r = await authFetch(`${API}/chat/conversations/${state.currentConv.id}/messages/${msgId}/export/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({format: fmt})
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fmt === 'docx' ? 'report.docx' : 'report.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showError('Export failed: ' + err.message);
+  }
+  btn.disabled = false; btn.textContent = fmt === 'docx' ? 'Word' : 'PDF';
+});
+
+async function deleteConversation(id) {
+  try {
+    await authFetch(`${API}/chat/conversations/${id}/`, {method: 'DELETE'});
+    if (state.currentConv && state.currentConv.id === id) {
+      state.currentConv = null;
+      el('conv-title').textContent = 'Select a conversation';
+      el('web-toggle').classList.remove('active'); state.webSearch = false;
+      enableInputs(false);
+      el('messages').innerHTML = '<div class="msg assistant"><div class="bubble">Select a conversation or create a new one to start chatting.</div></div>';
+    }
+    loadConversations();
+  } catch (err) { showError('Failed to delete conversation'); }
+}
+
+el('new-conv').onclick = async () => {
+  try {
+    const r = await authFetch(`${API}/chat/conversations/`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title: 'New Chat'})
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const conv = await r.json();
+    loadConversations();
+    selectConversation(conv.id);
+  } catch (err) { showError('Failed to create new chat'); }
+};
+
+// Share conversation
+let shareUrl = null;
+el('share-btn').onclick = async () => {
+  if (!state.currentConv) return;
+  const convId = state.currentConv.id;
+  try {
+    const r = await authFetch(`${API}/chat/conversations/${convId}/share/`, {method: 'POST'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    shareUrl = d.share_url;
+    el('share-link').value = shareUrl;
+    el('share-stop').style.display = 'inline-block';
+    el('share-dialog').style.display = 'flex';
+  } catch (err) { showError('Failed to share: ' + err.message); }
+};
+
+el('share-close').onclick = () => { el('share-dialog').style.display = 'none'; };
+el('share-dialog').onclick = (e) => { if (e.target === el('share-dialog')) el('share-dialog').style.display = 'none'; };
+
+el('share-copy').onclick = () => {
+  const input = el('share-link');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => showError('Link copied to clipboard')).catch(() => {});
+};
+
+el('share-stop').onclick = async () => {
+  if (!state.currentConv) return;
+  try {
+    const r = await authFetch(`${API}/chat/conversations/${state.currentConv.id}/share/`, {method: 'DELETE'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    shareUrl = null;
+    el('share-link').value = '';
+    el('share-stop').style.display = 'none';
+    showError('Sharing stopped');
+  } catch (err) { showError('Failed to stop sharing: ' + err.message); }
+};
+
+// Web search toggle
+function syncWebToggle() {
+  el('web-toggle').classList.toggle('active', state.webSearch);
+  localStorage.setItem('socrates-websearch', state.webSearch ? '1' : '0');
+}
+el('web-toggle').onclick = () => {
+  if (el('web-toggle').style.pointerEvents === 'none') return;
+  state.webSearch = !state.webSearch;
+  syncWebToggle();
+};
+
+// Edit message
+el('messages').addEventListener('click', (e) => {
+  const btn = e.target.closest('.edit-btn');
+  if (!btn) return;
+  if (state.streaming) return;
+  const msgId = btn.dataset.msgId;
+  const content = btn.dataset.content;
+  startEdit(msgId, content);
+});
+
+function startEdit(msgId, content) {
+  state.editingMsgId = msgId;
+  el('msg-input').value = content;
+  el('msg-input').focus();
+  el('send-btn').textContent = 'Save';
+  el('edit-indicator').style.display = 'inline';
+  el('cancel-edit').style.display = 'inline-block';
+}
+
+function cancelEdit() {
+  state.editingMsgId = null;
+  el('msg-input').value = '';
+  el('send-btn').textContent = 'Send';
+  el('edit-indicator').style.display = 'none';
+  el('cancel-edit').style.display = 'none';
+}
+
+el('cancel-edit').onclick = cancelEdit;
+
+// File upload
+let attachedFiles = [];
+el('attach-btn').onclick = () => { el('file-input').click(); };
+el('file-input').onchange = async () => {
+  const file = el('file-input').files[0];
+  if (!file) return;
+  el('file-input').value = '';
+  const convId = state.currentConv && state.currentConv.id;
+  if (!convId) { showError('Select a conversation first'); return; }
+  const ext = file.name.split('.').pop().toLowerCase();
+  let fileType = 'other';
+  if (['pdf'].includes(ext)) fileType = 'pdf';
+  else if (['png','jpg','jpeg','gif','bmp','webp'].includes(ext)) fileType = 'image';
+  else if (['doc','docx','txt','csv','md'].includes(ext)) fileType = 'doc';
+  else if (['mp3','wav','ogg','flac'].includes(ext)) fileType = 'audio';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('file_type', fileType);
+  fd.append('original_name', file.name);
+  fd.append('conversation', convId);
+  try {
+    const r = await authFetch(`${API}/files/upload/`, {
+      method: 'POST', body: fd
+    });
+    if (!r.ok) throw new Error(`Upload failed (HTTP ${r.status})`);
+    const result = await r.json();
+    attachedFiles.push({id: result.id, name: file.name, type: fileType});
+    renderAttachments();
+  } catch (err) {
+    showError(`File upload failed: ${err.message}`);
+  }
+};
+
+function renderAttachments() {
+  const container = el('attachments');
+  container.innerHTML = '';
+  for (const af of attachedFiles) {
+    const chip = document.createElement('span');
+    chip.className = 'attach-chip';
+    chip.innerHTML = `${escapeHtml(af.name)} <span class="attach-chip-del" data-id="${af.id}">&times;</span>`;
+    chip.querySelector('.attach-chip-del').onclick = () => {
+      attachedFiles = attachedFiles.filter(f => f.id !== af.id);
+      renderAttachments();
+    };
+    container.appendChild(chip);
+  }
+  el('send-btn').textContent = attachedFiles.length > 0 ? 'Send' : 'Send';
+}
+
+// Send message
+el('send-btn').onclick = sendMessage;
+el('msg-input').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+
+async function sendMessage() {
+  const input = el('msg-input');
+  const text = input.value.trim();
+  if (!text || !state.currentConv || state.streaming) return;
+
+  // --- Edit mode: save the edit, then regenerate the reply ---
+  if (state.editingMsgId) {
+    const msgId = state.editingMsgId;
+    cancelEdit();
+    state.streaming = true;
+    el('send-btn').disabled = true; el('send-btn').textContent = '...';
+    el('msg-input').disabled = true;
+    try {
+      const r = await authFetch(`${API}/chat/conversations/${state.currentConv.id}/messages/${msgId}/`, {
+        method: 'PATCH', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content: text})
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${r.status}`); }
+      await loadMessages(state.currentConv.id);
+      await streamReply(text, state.webSearch, [], msgId);
+    } catch (err) {
+      showError('Edit failed: ' + err.message);
+    }
+    state.streaming = false;
+    el('send-btn').disabled = false; el('send-btn').textContent = 'Send';
+    el('msg-input').disabled = false;
+    el('msg-input').focus();
+    return;
+  }
+
+  // --- New message mode ---
+  const hasFiles = attachedFiles.length > 0;
+  const fileIds = attachedFiles.map(f => f.id);
+  attachedFiles = [];
+  renderAttachments();
+
+  const displayText = text || (hasFiles ? '[Analyzing attached file]' : '');
+  input.value = '';
+  appendMessage('user', displayText);
+
+  state.streaming = true;
+  el('send-btn').disabled = true; el('send-btn').textContent = '...';
+  el('msg-input').disabled = true;
+
+  await streamReply(text, state.webSearch, fileIds);
+
+  state.streaming = false;
+  el('send-btn').disabled = false; el('send-btn').textContent = 'Send';
+  el('msg-input').disabled = false;
+  el('msg-input').focus();
+}
+
+async function streamReply(text, webSearch, fileIds, regenerateId) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'msg assistant typing';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  msgDiv.appendChild(bubble);
+  el('messages').appendChild(msgDiv);
+
+  let fullResponse = '';
+  let evidenceList = [];
+  try {
+    const body = {message: text, web_search: webSearch};
+    if (fileIds.length > 0) body.file_ids = fileIds;
+    if (regenerateId) body.regenerate_message_id = regenerateId;
+    const r = await authFetch(`${API}/chat/conversations/${state.currentConv.id}/stream/`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `HTTP ${r.status}`); }
+
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'msg system';
+    statusDiv.innerHTML = '<div class="bubble status-bar"><span class="status-dot"></span> <span class="status-text">Analyzing...</span></div>';
+    el('messages').appendChild(statusDiv);
+    function setStatus(text) {
+      const st = statusDiv.querySelector('.status-text');
+      if (st) st.textContent = text;
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          try {
+            const obj = JSON.parse(data);
+            if (obj.done) {
+              statusDiv.remove();
+              if (obj.message_id) {
+                msgDiv.dataset.msgId = obj.message_id;
+                const tools = document.createElement('div');
+                tools.className = 'msg-tools';
+                tools.innerHTML = '<button type="button" class="tool-btn msg-export" data-format="docx" title="Download as Word">Word</button>' +
+                                  '<button type="button" class="tool-btn msg-export" data-format="pdf" title="Download as PDF">PDF</button>';
+                msgDiv.appendChild(tools);
+              }
+            }
+            else if (obj.analysis) {
+              msgDiv.classList.remove('typing');
+              const caps = obj.analysis.join(', ');
+              setStatus(`Analyzed: ${caps} → Generating...`);
+            }
+            else if (obj.search) {
+              evidenceList = obj.evidence || [];
+              const intentTag = obj.intent ? ` [${obj.intent}]` : '';
+              let covTag = '';
+              if (obj.coverage && obj.coverage.required && obj.coverage.required.length > 0) {
+                const miss = obj.coverage.missing || [];
+                covTag = miss.length > 0
+                  ? ` · missing: ${miss.join(', ')}`
+                  : ` · sources ${obj.coverage.found.length}/${obj.coverage.required.length} ✓`;
+              }
+              if (obj.count > 0) {
+                setStatus(`Search found ${obj.count} results${intentTag}${covTag} → Generating...`);
+              } else {
+                setStatus(`Search found no results${intentTag}${covTag} → Generating...`);
+              }
+            }
+            else if (obj.citations) {
+              if (obj.citations.length > 0) {
+                state.citationUrls = {};
+                for (const c of obj.citations) {
+                  if (c.index) state.citationUrls[c.index] = {url: c.url, title: c.title};
+                }
+                const citDiv = document.createElement('div');
+                citDiv.className = 'msg system';
+                let html = '<div class="bubble" style="font-size:0.8rem"><b>Sources:</b><br>';
+                for (const c of obj.citations) {
+                  html += `<a href="${escapeHtml(c.url)}" target="_blank" style="color:#1877f2">[${c.index}] ${escapeHtml(c.title)}</a><br>`;
+                }
+                html += '</div>';
+                citDiv.innerHTML = html;
+                state.citationsDiv = citDiv;
+                el('messages').appendChild(citDiv);
+                el('messages').scrollTop = el('messages').scrollHeight;
+              }
+            }
+            else if (obj.summary) {
+              const s = obj.summary;
+              const conf = s.confidence || {};
+              const sumDiv = document.createElement('div');
+              sumDiv.className = 'msg system';
+              let text = `Research summary: ${s.sources} sources searched, ${s.fields_verified} facts verified (${conf.high || 0} high / ${conf.medium || 0} medium confidence)`;
+              if (s.top_domains && s.top_domains.length) text += ` from ${s.top_domains.join(', ')}`;
+              sumDiv.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+              el('messages').appendChild(sumDiv);
+              el('messages').scrollTop = el('messages').scrollHeight;
+            }
+            else if (obj.timings) {
+              const t = obj.timings;
+              console.info('[timings]', t);
+              const fmt = (ms) => ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms';
+              const line = `planner ${fmt(t.planner_ms)} · search ${fmt(t.search_ms)} · extract ${fmt(t.extract_ms)} · generate ${fmt(t.generation_ms)} · total ${fmt(t.total_ms)}`;
+              if (state.citationsDiv) {
+                const foot = document.createElement('div');
+                foot.style.cssText = 'margin-top:0.4rem;color:var(--text-muted)';
+                foot.textContent = 'Timings: ' + line;
+                state.citationsDiv.querySelector('.bubble').appendChild(foot);
+              } else {
+                setStatus('Done — ' + line);
+              }
+            }
+            else if (obj.token) {
+              fullResponse += obj.token;
+              bubble.innerHTML = renderMarkdown(fullResponse);
+              el('messages').scrollTop = el('messages').scrollHeight;
+            }
+          } catch (e) { }
+        }
+      }
+    }
+    if (!fullResponse) bubble.textContent = '(no response)';
+    if (evidenceList.length > 0) {
+      bubble.appendChild(renderEvidence(evidenceList));
+      el('messages').scrollTop = el('messages').scrollHeight;
+    }
+  } catch (err) {
+    bubble.textContent = 'Error: ' + err.message;
+    showError('Message failed: ' + err.message);
+  }
+}
+
+// Auto-login from saved tokens
+(async () => {
+  loadTokens();
+  state.webSearch = localStorage.getItem('socrates-websearch') === '1';
+  syncWebToggle();
+  if (state.token) {
+    try {
+      await Promise.all([fetchUser(), loadConversations()]);
+      hide(authScreen); show(appScreen);
+    } catch {
+      clearTokens();
+    }
+  }
+})();
+</script>
+</body>
+</html>
