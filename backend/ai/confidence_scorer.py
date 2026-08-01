@@ -19,16 +19,18 @@ class ConfidenceScorer:
         used_indices = source_refs['all_indices']
 
         citations = ConfidenceScorer._build_citations(used_indices, url_by_index)
-        section_confidence = ConfidenceScorer._section_confidence(response_text, used_indices, url_by_index)
-        summary_badge = ConfidenceScorer._overall_confidence(section_confidence)
 
         enriched = response_text
-        if summary_badge:
-            enriched += f'\n\n---\n**Report Confidence:** {summary_badge["label"]} ({summary_badge["score"]}% of claims supported by sources)'
-
-        data_quality = ConfidenceScorer._data_quality(verified, url_by_index, summary_badge)
-        if data_quality:
-            enriched += '\n\n' + data_quality
+        notes = []
+        if verified:
+            summary_badge = ConfidenceScorer._verified_badge(verified)
+            if summary_badge:
+                enriched += f'\n\n---\n**Report Confidence:** {summary_badge["label"]} ({summary_badge["score"]}% of extracted facts verified)'
+            data_quality = ConfidenceScorer._data_quality(verified, url_by_index, summary_badge)
+            if data_quality:
+                enriched += '\n\n' + data_quality
+        else:
+            notes.append('No verified fact dataset — response is not fact-checked')
 
         has_facts_section = '## Key Facts' in response_text or '### Facts' in response_text
         has_analysis_section = '## Analysis' in response_text or '### Analysis' in response_text
@@ -121,31 +123,17 @@ class ConfidenceScorer:
         return citations
 
     @staticmethod
-    def _section_confidence(text, used_indices, url_by_index):
-        weights = []
-        for idx in used_indices:
-            entry = url_by_index.get(idx)
-            if entry:
-                weights.append(entry['weight'])
-        if not weights:
-            return {'average_weight': 0, 'high_count': 0, 'total': 0}
-        return {
-            'average_weight': sum(weights) / len(weights),
-            'high_count': sum(1 for w in weights if w >= 3),
-            'total': len(weights),
-        }
-
-    @staticmethod
-    def _overall_confidence(section_conf):
-        if not section_conf or section_conf['total'] == 0:
+    def _verified_badge(verified):
+        entries = [e for e in verified.values() if e and e.get('value') is not None]
+        if not entries:
             return None
-        total = section_conf['total']
-        high = section_conf['high_count']
-        avg = section_conf['average_weight']
-        if total >= 5 and high >= 3 and avg >= 3:
+        high = sum(1 for e in entries if e.get('confidence') == 'high')
+        medium = sum(1 for e in entries if e.get('confidence') == 'medium')
+        ratio = (high + medium) / len(entries)
+        if ratio >= 0.75:
             return {'label': 'High', 'score': 90}
-        if total >= 3 and avg >= 2:
+        if ratio >= 0.5:
             return {'label': 'Medium', 'score': 70}
-        if total >= 1:
+        if ratio >= 0.25:
             return {'label': 'Low', 'score': 40}
         return {'label': 'None', 'score': 0}

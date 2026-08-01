@@ -104,7 +104,11 @@ class DedupeRegressionTests(SimpleTestCase):
 
 class VerifierRegressionTests(SimpleTestCase):
     def _verify(self, sources):
-        return FactVerifier.verify({'field': {'value': 'X', 'sources': sources}}, [])
+        all_results = [
+            {'url': s['url'], 'snippet': 'The value X is mentioned here in this source.'}
+            for s in sources
+        ]
+        return FactVerifier.verify({'field': {'value': 'X', 'sources': sources}}, all_results)
 
     def test_confidence_thresholds(self):
         one = self._verify([{'url': 'https://example.com/a', 'published_date': '2026-07-01'}])

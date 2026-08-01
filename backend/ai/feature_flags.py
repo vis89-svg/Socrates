@@ -13,6 +13,8 @@ class FeatureFlags:
             'ENABLE_OBSERVABILITY': True,
             'ENABLE_QUERY_PLANNER': True,
             'ENABLE_PIPELINE_TRACE': False,
+            'ENABLE_AGENT_LOOP': True,
+            'ENABLE_PAGE_FETCH': True,
         }
         value = getattr(settings, flag, None)
         if value is not None:

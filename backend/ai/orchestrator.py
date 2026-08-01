@@ -4,6 +4,7 @@ from django.conf import settings
 from .task_analyzer import TaskAnalyzer
 from .query_planner import QueryPlanner
 from .tool_router import ToolRouter
+from .decision_loop import DecisionLoop
 from .context_builder import ContextBuilder
 from .model_router import ModelRouter
 from .response_formatter import ResponseFormatter
@@ -59,6 +60,81 @@ def generateResponse(query, history=None, user=None, conversation_id=None, files
     log.capabilities = list(capabilities)
     yield {'type': 'analysis', 'capabilities': list(capabilities), 'planned_query': planned_query}
 
+    use_agent = FeatureFlags.is_enabled('ENABLE_AGENT_LOOP')
+    is_deep_research_hint = any(kw in planned_query.lower() for kw in _DEEP_RESEARCH_KEYWORDS)
+
+    if use_agent and not is_deep_research_hint:
+        yield from _generate_agent(planned_query, history, user=user, conversation_id=conversation_id,
+                                   files_data=files_data, web_search=web_search, capabilities=capabilities,
+                                   plan=plan, plan_intent=plan_intent,
+                                   plan_required_sources=plan_required_sources, log=log, tracer=tracer)
+    else:
+        yield from _generate_legacy(planned_query, history, user=user, conversation_id=conversation_id,
+                                    files_data=files_data, web_search=web_search, capabilities=capabilities,
+                                    plan=plan, plan_intent=plan_intent,
+                                    plan_required_sources=plan_required_sources, log=log, tracer=tracer)
+
+
+def _generate_agent(planned_query, history, user, conversation_id, files_data, web_search,
+                    capabilities, plan, plan_intent, plan_required_sources, log, tracer):
+    if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
+        tracer.log_timed_stage('agent_start', {'capabilities': list(capabilities)})
+
+    context_caps = capabilities - {'needs_search', 'needs_math', 'needs_code'}
+    tool_results = ToolRouter.execute(context_caps, planned_query, user=user,
+                                      conversation_id=conversation_id, intent=plan_intent,
+                                      required_sources=plan_required_sources)
+    if files_data and not tool_results.get('documents'):
+        tool_results['documents'] = files_data
+
+    model_key = 'chat'
+    if plan and plan['model_route']:
+        model_key = plan['model_route']
+    elif 'needs_code' in capabilities:
+        model_key = 'coding'
+    elif 'needs_reasoning' in capabilities or 'needs_math' in capabilities:
+        model_key = 'reasoning'
+    log.model = model_key
+
+    loop = DecisionLoop(
+        planned_query, history=history, user=user, conversation_id=conversation_id,
+        files_data=files_data, model_key=model_key, web_search=web_search,
+        context_blocks=_context_blocks(tool_results, files_data), tracer=tracer,
+    )
+
+    full_response = ''
+    token_count = 0
+    for event in loop.run():
+        if event['type'] == 'token':
+            full_response += event['content']
+            token_count += 1
+            yield event
+        elif event['type'] in ('tool_use', 'search_results'):
+            yield event
+
+    log.tokens_used = token_count
+
+    if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
+        tracer.log_timed_stage('agent_generation_complete', {'tokens': token_count, 'chars': len(full_response)})
+
+    formatted, citations = ResponseFormatter.format(full_response, loop.search_results or None)
+
+    if citations:
+        yield {'type': 'citations', 'citations': citations}
+
+    log.complete()
+    if FeatureFlags.is_enabled('ENABLE_OBSERVABILITY'):
+        log.log()
+
+    if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
+        tracer.finish()
+        yield {'type': 'timings', 'timings': _timings(tracer, log, None)}
+
+    yield {'type': 'done', 'response': formatted}
+
+
+def _generate_legacy(planned_query, history, user, conversation_id, files_data, web_search,
+                     capabilities, plan, plan_intent, plan_required_sources, log, tracer):
     if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
         tracer.log_timed_stage('tool_router_start', {'capabilities': list(capabilities)})
 
@@ -92,6 +168,7 @@ def generateResponse(query, history=None, user=None, conversation_id=None, files
 
     verified_facts = None
     if is_deep_research:
+        yield {'type': 'stage', 'label': 'Researching — filling gaps and extracting facts...'}
         prompt, search_results_raw, loop_summary, verified_facts = _build_deep_research_prompt(planned_query, search_info, history, capabilities, tool_results, tracer)
         if loop_summary:
             prompt = loop_summary + '\n\n' + prompt
@@ -104,6 +181,8 @@ def generateResponse(query, history=None, user=None, conversation_id=None, files
     if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
         tracer.log_timed_stage('prompt_built', {'prompt_length': len(prompt), 'deep_research': is_deep_research})
 
+    yield {'type': 'stage', 'label': 'Writing answer...'}
+
     model_key = 'chat'
     if plan and plan['model_route']:
         model_key = plan['model_route']
@@ -114,7 +193,7 @@ def generateResponse(query, history=None, user=None, conversation_id=None, files
 
     log.model = model_key
 
-    max_tokens = 2048 if is_deep_research else 1536 if use_research_prompt else None
+    max_tokens = 1536 if use_research_prompt else None
 
     full_response = ''
     token_count = 0
@@ -201,7 +280,7 @@ def _timings(tracer, log, search_info):
     return {
         'planner_ms': durations.get('planner_complete', 0),
         'search_ms': (search_info.get('time_ms', 0) if search_info else 0) or durations.get('tool_router_complete', 0),
-        'agent_loop_ms': durations.get('agent_loop_complete', 0),
+        'agent_loop_ms': durations.get('decision_loop_complete', 0) or durations.get('agent_loop_complete', 0),
         'extract_ms': extract_ms,
         'verify_ms': durations.get('verification_complete', 0),
         'generation_ms': durations.get('generation_complete', 0),
@@ -216,6 +295,27 @@ def _load_prompt(name):
             return f.read()
     except FileNotFoundError:
         return ''
+
+
+def _context_blocks(tool_results, files_data):
+    """Pre-rendered context blocks (memories, documents) for the agent loop."""
+    blocks = []
+    memories = tool_results.get('memories') or []
+    if memories:
+        mem_lines = '\n'.join(f'- {m["content"]}' for m in memories)
+        blocks.append('Relevant information from the user\'s history:\n' + mem_lines)
+    documents = tool_results.get('documents') or []
+    if not documents and files_data:
+        documents = files_data
+    if documents:
+        doc_lines = []
+        for d in documents:
+            if d.get('text'):
+                doc_lines.append(f'--- {d["name"]} ---\n{d["text"]}')
+            else:
+                doc_lines.append(f'--- {d["name"]} ---\n[The user attached a file named "{d["name"]}" (type: {d.get("type", "unknown")}). It could not be read as text.]')
+        blocks.append('The user is asking about uploaded documents. Analyze them and answer their questions.\n\nDocuments:\n' + '\n\n'.join(doc_lines))
+    return blocks
 
 
 def _build_enhanced_prompt(query, search_info, history, capabilities, tool_results, verified_dataset=None, tracer=None):

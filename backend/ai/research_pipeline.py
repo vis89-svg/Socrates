@@ -13,25 +13,17 @@ MAX_PAGE_EXCERPT = 800
 
 def _extract_generate(prompt, max_tokens=None):
     last_error = None
-    for attempt in range(4):
+    for attempt in range(2):
         try:
             yield from ModelRouter.generate_stream(prompt, model_key='extract', max_tokens=max_tokens,
-                                                   allow_fallback=False)
+                                                   allow_fallback=True)
             return
         except Exception as exc:
             last_error = exc
-            if attempt < 3:
-                delay = 10 * (2 ** attempt)
-                response = getattr(exc, 'response', None)
-                retry_after = getattr(response, 'headers', {}).get('Retry-After') if response is not None else None
-                if retry_after:
-                    try:
-                        delay = max(delay, min(int(retry_after), 120))
-                    except (TypeError, ValueError):
-                        pass
+            if attempt == 0:
                 logging.getLogger('ai.pipeline').warning(
-                    'extract attempt %d failed (%s), retrying in %ds', attempt + 1, exc.__class__.__name__, delay)
-                time.sleep(delay)
+                    'extract attempt 1 failed (%s), retrying once', exc.__class__.__name__)
+                time.sleep(3)
     raise last_error
 
 

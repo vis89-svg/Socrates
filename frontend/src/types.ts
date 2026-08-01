@@ -78,6 +78,12 @@ export interface DoneEvent {
   message_id: number
 }
 
+export interface ToolUseEvent {
+  tool: string
+  label: string
+  args: Record<string, string>
+}
+
 export interface StreamEvent {
   analysis?: string[]
   search?: SearchEvent
@@ -86,6 +92,8 @@ export interface StreamEvent {
   timings?: TimingsEvent
   token?: string
   done?: DoneEvent
+  tool_use?: ToolUseEvent
+  stage?: string
 }
 
 export interface UploadedFile {

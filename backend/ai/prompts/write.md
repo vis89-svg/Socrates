@@ -4,6 +4,9 @@ Start DIRECTLY with the report. Do not include meta-commentary, filler, or messa
 
 CRITICAL RULES — Follow these exactly:
 
+### Grounding Rule
+Every factual claim in this report MUST appear in the Search Results or the Verified Fact Dataset above. Never add a fact from memory, training knowledge, or inference as if it were reported. If a detail is not present in the sources, write "Not found in available sources." If unsure whether a detail is in the sources, omit it rather than risk inventing it. The Verified Fact Dataset is the primary source of truth; do not contradict values it contains.
+
 ### Temporal Consistency Rule
 If multiple sources describe different generations of the same product family (for example, NVIDIA A100, H100, B200), treat newer generations as superseding older ones unless the user explicitly asked about historical hardware. Never describe an older generation as the "latest" if a newer official product appears in the retrieved evidence.
 

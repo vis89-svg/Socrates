@@ -249,7 +249,11 @@ export default function ChatScreen({ user, theme, toggleTheme, onLogout }: ChatS
       await readStream(response, (ev) => {
         if (ev.analysis) {
           const caps = ev.analysis.join(', ')
-          apply({ status: `Analyzed: ${caps} → Generating...` })
+          apply({ status: `Analyzed: ${caps}` })
+        } else if (ev.tool_use) {
+          apply({ status: ev.tool_use.label })
+        } else if (ev.stage) {
+          apply({ status: ev.stage })
         } else if (ev.search) {
           evidence = ev.search.evidence || evidence
           const intentTag = ev.search.intent ? ` [${ev.search.intent}]` : ''
@@ -262,7 +266,7 @@ export default function ChatScreen({ user, theme, toggleTheme, onLogout }: ChatS
                 : ` · sources ${ev.search.coverage.found.length}/${ev.search.coverage.required.length} ✓`
           }
           const countText = ev.search.count > 0 ? `${ev.search.count} results` : 'no results'
-          apply({ status: `Search found ${countText}${intentTag}${covTag} → Generating...`, evidence })
+          apply({ status: `Search found ${countText}${intentTag}${covTag}`, evidence })
         } else if (ev.citations) {
           if (ev.citations.length > 0) {
             const map: CitationMap = {}

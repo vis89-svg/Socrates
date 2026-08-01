@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 
 from .source_weighter import SourceWeighter
 from .feature_flags import FeatureFlags
@@ -25,12 +26,53 @@ def _parse_date(date_str):
     return None
 
 
+def _value_variants(value):
+    if isinstance(value, list):
+        return [str(v) for v in value if v is not None and str(v).strip()]
+    if value is None:
+        return []
+    text = str(value).strip()
+    return [] if text in ('', 'null') else [text]
+
+
+def _source_content_by_url(all_results):
+    lookup = {}
+    for r in all_results or []:
+        url = r.get('url', '')
+        if not url:
+            continue
+        parts = [str(r.get('title') or ''), str(r.get('snippet') or ''), str(r.get('page_text') or '')]
+        lookup[url] = '\n'.join(p for p in parts if p)
+    return lookup
+
+
+def _content_supports(content, variant):
+    """True if the source text contains the value, False if it provably does not,
+    None if there is no content to check against."""
+    if not content:
+        return None
+    vlow = variant.lower()
+    clow = content.lower()
+    if vlow in clow:
+        return True
+    numbers = re.findall(r'\d[\d,.]*', vlow)
+    if numbers:
+        if not all(n.replace(',', '') in clow for n in numbers):
+            return False
+    v_tokens = set(re.findall(r"[a-z0-9']+", vlow))
+    if len(v_tokens) <= 1:
+        return False
+    c_tokens = set(re.findall(r"[a-z0-9']+", clow))
+    return len(v_tokens & c_tokens) / len(v_tokens) >= 0.5
+
+
 class FactVerifier:
     @staticmethod
     def verify(extracted_data, all_results, tracer=None, query=None):
         if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
             tracer.log_timed_stage('verifier_start', {'fields_count': len(extracted_data), 'results_count': len(all_results)})
 
+        source_texts = _source_content_by_url(all_results)
         verified = {}
         for field, entry in extracted_data.items():
             if entry is None:
@@ -39,10 +81,12 @@ class FactVerifier:
 
             value = entry.get('value')
             raw_sources = entry.get('sources', [])
+            variants = _value_variants(value)
 
             weighted_sources = []
             published_dates = []
             total_weight = 0
+            dropped = 0
             for src in raw_sources:
                 if isinstance(src, dict):
                     url = src.get('url')
@@ -53,6 +97,22 @@ class FactVerifier:
                 if url:
                     w = SourceWeighter.weight(url)
                     if w > 0:
+                        if url not in source_texts:
+                            dropped += 1
+                            continue
+                        content = source_texts.get(url)
+                        supported = None
+                        if variants:
+                            for variant in variants:
+                                check = _content_supports(content, variant)
+                                if check is True:
+                                    supported = True
+                                    break
+                                if check is False:
+                                    supported = False
+                        if supported is False:
+                            dropped += 1
+                            continue
                         weighted_sources.append({'url': url, 'weight': w})
                         if pub_date:
                             published_dates.append(pub_date)
@@ -68,7 +128,7 @@ class FactVerifier:
 
             if source_count == 0:
                 confidence = 'none'
-                note = 'No supporting source URLs provided'
+                note = 'No supporting source URLs provided' if not dropped else 'Value not found in its claimed sources'
             elif source_count >= 3:
                 confidence = 'high'
                 note = f'Supported by {source_count} independent sources'
@@ -78,6 +138,8 @@ class FactVerifier:
             else:
                 confidence = 'low'
                 note = f'Limited to {source_count} source(s)'
+            if dropped:
+                note += f' ({dropped} claimed source(s) did not contain this value)'
 
             if newest_date:
                 age_days = (datetime.now(timezone.utc) - newest_date).days

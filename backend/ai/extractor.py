@@ -82,7 +82,7 @@ _SCHEMA_PROMPTS = {
 }
 
 _MAX_TOKENS = {
-    'company': 1200,
+    'company': 1000,
     'hardware': 2000,
 }
 
@@ -195,7 +195,7 @@ class Extractor:
         prompt += '\n\nJSON output:'
 
         raw_output = ''
-        for token in generate_fn(prompt, max_tokens=800):
+        for token in generate_fn(prompt, max_tokens=700):
             raw_output += token
 
         parsed = _parse_json(raw_output)

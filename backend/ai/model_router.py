@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from django.conf import settings
 from .inference import generate_stream as local_stream
 
@@ -28,9 +29,21 @@ def _has_openrouter():
     return bool(getattr(settings, 'OPENROUTER_API_KEY', ''))
 
 
-def _api_stream(model_name, prompt, max_tokens):
+def _api_stream_with_retry(model_name, prompt, max_tokens):
     from .inference_api import generate_stream as api_stream
-    yield from api_stream(prompt, model=model_name, max_tokens=max_tokens)
+    try:
+        yield from api_stream(prompt, model=model_name, max_tokens=max_tokens)
+        return
+    except Exception as exc:
+        status = getattr(getattr(exc, 'response', None), 'status_code', None)
+        if status not in (429, 500, 502, 503, 504):
+            raise
+        time.sleep(2)
+        yield from api_stream(prompt, model=model_name, max_tokens=max_tokens)
+
+
+def _api_stream(model_name, prompt, max_tokens):
+    yield from _api_stream_with_retry(model_name, prompt, max_tokens)
 
 
 class ModelRouter:
