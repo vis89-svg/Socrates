@@ -1,0 +1,46 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Virtual env
+venv/
+.venv/
+
+# Environment & secrets
+.env
+.env.local
+
+# Database
+*.sqlite3
+db.sqlite3
+backend/db.sqlite3
+
+# Model files (large binaries)
+*.gguf
+models/*.gguf
+
+# Wheels & binaries
+*.whl
+*.exe
+
+# Uploads / media
+uploads/
+backend/uploads/
+
+# Caches
+__pycache__/
+orchestrator_cache/
+search_cache/
+backend/orchestrator_cache/
+backend/search_cache/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
