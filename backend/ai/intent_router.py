@@ -11,12 +11,23 @@ class Intent:
     DOCUMENT_ANALYSIS = 'document_analysis'
     IMAGE_ANALYSIS = 'image_analysis'
     CREATIVE = 'creative'
+    WEATHER = 'weather'
+    FINANCE = 'finance'
+    MAPS = 'maps'
+    COMPANY = 'company'
 
-    SEARCH_REQUIRED = {CURRENT_EVENTS, WEB_SEARCH}
+    SEARCH_REQUIRED = {CURRENT_EVENTS, WEB_SEARCH, WEATHER, FINANCE}
+
+    WEATHER_INTENTS = {WEATHER}
+    FAST_INTENTS = {WEATHER, FINANCE, MAPS, COMPANY}
 
     @classmethod
     def needs_search(cls, intent):
         return intent in cls.SEARCH_REQUIRED
+
+    @classmethod
+    def is_fast_path(cls, intent):
+        return intent in cls.FAST_INTENTS
 
     @classmethod
     def model_key(cls, intent):
@@ -65,7 +76,31 @@ _PATTERNS = [
         r'\bsearch for\b', r'\bfind information about\b',
         r'\blook up\b', r'\bwhat is the (latest|current|recent)\b',
         r'\btell me about\b.*\b(current|recent|today|now)\b',
-        r'\bprice of\b', r'\bweather\b', r'\bstock\b',
+        r'\bprice of\b', r'\bstock\b',
+    ]),
+    (Intent.WEATHER, [
+        r'\bweather\b', r'\btemperature\b', r'\bforecast\b',
+        r'\brain\b', r'\bhumidity\b', r'\bwinds?\b',
+        r'\bIMD\b', r'\bmeteorological\b', r'\bmonsoon\b',
+        r'\balert\b.*\b(rain|flood|storm|cyclone)\b',
+        r'\bred alert\b', r'\borange alert\b', r'\bweather warning\b',
+        r'\bhow (is|are|was|will be) the weather\b',
+        r'\bwhat.*(weather|temperature|rain|forecast)\b',
+        r'\bweather in\b', r'\bweather at\b', r'\bweather for\b',
+    ]),
+    (Intent.FINANCE, [
+        r'\bprice of\b', r'\bstock\b', r'\bshare\b', r'\bmarket cap\b',
+        r'\brevenue\b', r'\bearnings\b', r'\bfinancial\b',
+        r'\b10-K\b', r'\b10-Q\b', r'\bsec filing\b',
+    ]),
+    (Intent.MAPS, [
+        r'\bmap\b', r'\bdirections\b', r'\blocation\b',
+        r'\bdistance between\b', r'\bnearest\b', r'\bcoordinates\b',
+    ]),
+    (Intent.COMPANY, [
+        r'\bcompany\b.*\b(profile|overview|about)\b',
+        r'\bleadership\b', r'\bCEO\b', r'\bfounder\b',
+        r'\bheadquarters\b', r'\bemployees\b',
     ]),
     (Intent.DOCUMENT_ANALYSIS, [
         r'\bsummarize\b', r'\breview this\b', r'\banalyze this\b',
@@ -106,5 +141,9 @@ class IntentRouter:
             Intent.WEB_SEARCH: 'Web search request',
             Intent.DOCUMENT_ANALYSIS: 'Document analysis',
             Intent.IMAGE_ANALYSIS: 'Image analysis',
+            Intent.WEATHER: 'Weather lookup',
+            Intent.FINANCE: 'Financial data lookup',
+            Intent.MAPS: 'Maps and location lookup',
+            Intent.COMPANY: 'Company profile lookup',
         }
         return descriptions.get(intent, 'General conversation')

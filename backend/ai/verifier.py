@@ -26,6 +26,31 @@ def _parse_date(date_str):
     return None
 
 
+_FIELD_KEYWORDS = {
+    'founded': ['founded', 'established', 'incorporated', 'started', 'launched', 'created', 'began', 'est.'],
+    'founded_year': ['founded', 'established', 'incorporated', 'started', 'launched', 'created', 'began', 'est.'],
+    'founder': ['founder', 'co-found', 'founded by'],
+    'founders': ['founder', 'co-found', 'founded by'],
+    'ceo': ['ceo', 'chief executive'],
+    'chairman': ['chairman', 'chair'],
+    'headquarters': ['headquarters', 'headquartered', 'based in', 'hq'],
+    'hq': ['headquarters', 'headquartered', 'based in', 'hq'],
+    'location': ['based in', 'located', 'headquarters'],
+    'employees': ['employees', 'staff', 'workforce', 'headcount'],
+    'revenue': ['revenue', 'income', 'earnings', 'sales', 'turnover'],
+    'ticker': ['ticker', 'symbol', 'stock'],
+    'website': ['website', 'site', 'web'],
+    'market_cap': ['market cap', 'market capitalization', 'valuation'],
+    'price': ['price', 'cost', 'priced', 'msrp'],
+    'release_date': ['release', 'launch', 'shipped', 'announced', 'available'],
+    'status': ['status', 'available', 'released', 'shipping', 'announced', 'unreleased'],
+}
+
+
+def _field_keywords(field):
+    return _FIELD_KEYWORDS.get(str(field).lower().strip())
+
+
 def _value_variants(value):
     if isinstance(value, list):
         return [str(v) for v in value if v is not None and str(v).strip()]
@@ -46,15 +71,30 @@ def _source_content_by_url(all_results):
     return lookup
 
 
-def _content_supports(content, variant):
+def _content_supports(content, variant, keywords=None):
     """True if the source text contains the value, False if it provably does not,
-    None if there is no content to check against."""
+    None if there is no content to check against.
+
+    With `keywords` (field-specific terms such as "founded" for the founded
+    field), the value must appear in the SAME SENTENCE as at least one keyword;
+    a page that merely mentions the value in an unrelated context is treated
+    as not supporting the claim. If the page contains none of the keywords,
+    the plain value check is used (the page does not discuss the topic at all,
+    so it can neither confirm nor contradict the value's wording).
+    """
     if not content:
         return None
     vlow = variant.lower()
     clow = content.lower()
     if vlow in clow:
-        return True
+        present = [k for k in (keywords or []) if k and k in clow]
+        if not present:
+            return True
+        sentences = [s for s in re.split(r'(?<=[.!?])\s+|\n+', clow) if s.strip()]
+        for sentence in sentences:
+            if vlow in sentence and any(k in sentence for k in present):
+                return True
+        return False
     numbers = re.findall(r'\d[\d,.]*', vlow)
     if numbers:
         if not all(n.replace(',', '') in clow for n in numbers):
@@ -74,6 +114,8 @@ class FactVerifier:
 
         source_texts = _source_content_by_url(all_results)
         verified = {}
+        total_dropped = 0
+        total_dropped_unrelated = 0
         for field, entry in extracted_data.items():
             if entry is None:
                 verified[field] = {'value': None, 'sources': [], 'published_dates': [], 'confidence': 'none', 'note': 'Not found in available sources'}
@@ -82,11 +124,13 @@ class FactVerifier:
             value = entry.get('value')
             raw_sources = entry.get('sources', [])
             variants = _value_variants(value)
+            keywords = _field_keywords(field)
 
             weighted_sources = []
             published_dates = []
             total_weight = 0
             dropped = 0
+            dropped_unrelated = 0
             for src in raw_sources:
                 if isinstance(src, dict):
                     url = src.get('url')
@@ -104,14 +148,17 @@ class FactVerifier:
                         supported = None
                         if variants:
                             for variant in variants:
-                                check = _content_supports(content, variant)
+                                check = _content_supports(content, variant, keywords)
                                 if check is True:
                                     supported = True
                                     break
                                 if check is False:
                                     supported = False
                         if supported is False:
-                            dropped += 1
+                            if keywords:
+                                dropped_unrelated += 1
+                            else:
+                                dropped += 1
                             continue
                         weighted_sources.append({'url': url, 'weight': w})
                         if pub_date:
@@ -128,7 +175,10 @@ class FactVerifier:
 
             if source_count == 0:
                 confidence = 'none'
-                note = 'No supporting source URLs provided' if not dropped else 'Value not found in its claimed sources'
+                if dropped_unrelated:
+                    note = f'Value appears in claimed sources but not in a "{field.replace("_", " ")}" context'
+                else:
+                    note = 'No supporting source URLs provided' if not dropped else 'Value not found in its claimed sources'
             elif source_count >= 3:
                 confidence = 'high'
                 note = f'Supported by {source_count} independent sources'
@@ -140,6 +190,10 @@ class FactVerifier:
                 note = f'Limited to {source_count} source(s)'
             if dropped:
                 note += f' ({dropped} claimed source(s) did not contain this value)'
+            if dropped_unrelated:
+                note += f' ({dropped_unrelated} claimed source(s) mentioned it in an unrelated context)'
+            total_dropped += dropped
+            total_dropped_unrelated += dropped_unrelated
 
             if newest_date:
                 age_days = (datetime.now(timezone.utc) - newest_date).days
@@ -169,6 +223,8 @@ class FactVerifier:
             tracer.log_timed_stage('verifier_complete', {
                 'fields_verified': len(verified),
                 'high_confidence': sum(1 for v in verified.values() if v.get('confidence') == 'high'),
+                'claimed_sources_dropped': total_dropped,
+                'claimed_sources_unrelated_context': total_dropped_unrelated,
             })
 
         verified = GoldenFacts.apply(verified, query, tracer=tracer)

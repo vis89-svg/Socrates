@@ -11,6 +11,9 @@ from .source_weighter import SourceWeighter
 from .observability import Observability
 from .feature_flags import FeatureFlags
 from .retrieval_profiles import RetrievalProfile, matches_domain
+from .pipeline_ranking import rank_results, PIPELINE_RANKERS
+from .constraint_engine import ConstraintEngine
+from .temporal_constraint import TemporalConstraintEngine
 
 
 MAX_PAGE_FETCHES = 10
@@ -21,7 +24,8 @@ RECENCY_WINDOW_DAYS = 365
 def _parse_date(date_str):
     if not date_str:
         return None
-    for fmt in ('%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%SZ', '%Y/%m/%d', '%d %b %Y', '%b %d, %Y'):
+    for fmt in ('%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%SZ', '%Y/%m/%d',
+                '%d %b %Y', '%d %B %Y', '%b %d, %Y', '%B %d, %Y'):
         try:
             return datetime.strptime(date_str[:19], fmt[:19]).replace(tzinfo=timezone.utc)
         except ValueError:
@@ -53,10 +57,14 @@ def _recency_score(published_date, mode='balanced'):
     return base
 
 
+_MONTHS = r'(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+
 _DATE_PATTERNS = [
-    (r'(?:published|posted|updated|last modified|released)[:\s]+((?:19|20)\d{2}-\d{2}-\d{2})', '%Y-%m-%d'),
-    (r'(?:published|posted|updated|last modified|released)[:\s]+((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},?\s+(?:19|20)\d{2})', None),
+    (r'(?:published|posted|updated|last modified|reviewed|released)[:\s]+((?:19|20)\d{2}-\d{2}-\d{2})', '%Y-%m-%d'),
+    (r'(?:published|posted|updated|last modified|reviewed|released)[:\s]+(' + _MONTHS + r'\s+\d{1,2},?\s+(?:19|20)\d{2})', None),
+    (r'(?:published|posted|updated|last modified|reviewed|released)[:\s]+(\d{1,2}\s+' + _MONTHS + r'\s+(?:19|20)\d{2})', None),
     (r'\b((?:19|20)\d{2}-\d{2}-\d{2})\b', '%Y-%m-%d'),
+    (r'\b(\d{1,2}\s+' + _MONTHS + r'\s+(?:19|20)\d{2})\b', None),
     (r'<meta[^>]+(?:property="article:published_time"|name="date"|name="publish_date")[^>]+content="([^"]+)"', None),
 ]
 
@@ -83,14 +91,16 @@ def _extract_date_from_text(text):
 class RetrievalService:
     MAX_COVERAGE_SEARCHES = 4
 
-    def execute(self, query, max_results=5, tracer=None, intent=None, required_sources=None):
+    def execute(self, query, max_results=5, tracer=None, intent=None, required_sources=None,
+                constraints=None):
         start = time.time()
+        temporal_type = TemporalConstraintEngine.extract(query)
 
         profile_id, profile = RetrievalProfile.resolve(query, intent)
         required = RetrievalProfile.effective_required(profile_id, extra=required_sources, query=query)
         if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
             tracer.log_timed_stage('intent_resolved', {'intent': profile_id, 'planner_intent': intent,
-                                                       'required_domains': required})
+                                                           'required_domains': required})
 
         if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
             tracer.log_timed_stage('query_expansion', {'original_query': query, 'expanded_count': 0})
@@ -125,6 +135,13 @@ class RetrievalService:
         search_time_ms = int((time.time() - start) * 1000)
         ranked = SourceWeighter.priority_sort(self._rank(all_results, query, profile))[:15]
 
+        schema_hint = profile.get('schema_hint')
+        pipeline_id = schema_hint if schema_hint in PIPELINE_RANKERS else profile_id
+        if pipeline_id in PIPELINE_RANKERS:
+            ranked = rank_results(pipeline_id, ranked)[:15]
+            if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
+                tracer.log_timed_stage('pipeline_ranking', {'intent': pipeline_id, 'ranked_count': len(ranked)})
+
         if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
             ranking_data = []
             for i, r in enumerate(ranked):
@@ -140,13 +157,41 @@ class RetrievalService:
                 })
             tracer.log_timed_stage('ranking', {'ranked_count': len(ranked), 'results': ranking_data})
 
+        if self._early_stop(ranked, query, profile):
+            if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
+                tracer.log_timed_stage('early_stop', {'reason': 'sufficient_evidence'})
+
         all_results, coverage = self._ensure_coverage(all_results, required, query, max_results=max_results,
-                                                     profile=profile, search_fn=search_service.search)
+                                                      profile=profile, search_fn=search_service.search)
         ranked = SourceWeighter.priority_sort(self._rank(all_results, query, profile))[:15]
 
         if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
             tracer.log_timed_stage('coverage_validation', coverage)
             tracer.log_timed_stage('ranking_after_coverage', {'ranked_count': len(ranked)})
+
+        ranked = self._pin_required_domains(ranked, all_results, coverage, tracer=tracer)
+
+        if constraints:
+            filtered = []
+            for r in ranked:
+                if not ConstraintEngine.violates_hard_constraint(r, constraints):
+                    filtered.append(r)
+                else:
+                    if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
+                        tracer.log_timed_stage('constraint_filter', {
+                            'rejected': r.get('url', ''),
+                            'reason': 'hard_constraint_violation',
+                        })
+            ranked = filtered[:15]
+
+        if TemporalConstraintEngine.should_enforce(temporal_type):
+            before = len(ranked)
+            ranked = TemporalConstraintEngine.filter_results(ranked, temporal_type)[:15]
+            if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE') and len(ranked) < before:
+                tracer.log_timed_stage('temporal_filter', {
+                    'temporal_type': temporal_type.value,
+                    'removed': before - len(ranked),
+                })
 
         pages_to_fetch = self._select_pages_to_fetch(ranked, seen_urls)
         if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE'):
@@ -184,6 +229,7 @@ class RetrievalService:
             'summary': summary,
             'intent': profile_id,
             'temporal_mode': profile.get('temporal', 'balanced'),
+            'temporal_type': temporal_type.value,
             'coverage': coverage,
         }
 
@@ -223,6 +269,44 @@ class RetrievalService:
         if len(merged) > len(all_results):
             merged = RetrievalService._dedupe(merged)
         return merged, RetrievalService._coverage_report(merged, required)
+
+    @staticmethod
+    def _drop_lowest_generic(pinned, required):
+        """Drop the lowest-ranked entry that is not a required authority,
+        making room for a promoted one. Returns True if room was made."""
+        for i in range(len(pinned) - 1, -1, -1):
+            url = pinned[i].get('url', '')
+            if not any(matches_domain(url, d) for d in required):
+                del pinned[i]
+                return True
+        return False
+
+    @staticmethod
+    def _pin_required_domains(ranked, all_results, coverage, tracer=None):
+        """Guarantee that every required authority the coverage report found
+        survives into the ranked evidence list. Coverage validates against the
+        full result pool, but re-ranking + [:15] truncation could otherwise
+        drop the authoritative page before it reaches fetching/extraction."""
+        if not coverage or not coverage.get('found'):
+            return ranked
+        required = coverage.get('required') or []
+        pinned = list(ranked)
+        pinned_urls = {r.get('url', '') for r in pinned}
+        promoted = []
+        for domain in coverage['found']:
+            if any(matches_domain(r.get('url', ''), domain) for r in pinned):
+                continue
+            for r in all_results:
+                if matches_domain(r.get('url', ''), domain) and r.get('url') and r.get('url') not in pinned_urls:
+                    if len(pinned) >= 15:
+                        RetrievalService._drop_lowest_generic(pinned, required)
+                    pinned.append(r)
+                    pinned_urls.add(r.get('url', ''))
+                    promoted.append(domain)
+                    break
+        if tracer and FeatureFlags.is_enabled('ENABLE_PIPELINE_TRACE') and promoted:
+            tracer.log_timed_stage('coverage_pin', {'promoted_domains': promoted})
+        return pinned[:15]
 
     @staticmethod
     def _canonicalize_url(url):
@@ -402,3 +486,24 @@ class RetrievalService:
                 parts.append(f"Searched but no relevant results found: {', '.join(coverage['missing'])}")
             parts.append('')
         return '\n'.join(parts)
+
+    @staticmethod
+    def _early_stop(ranked_results, query, profile=None):
+        if not ranked_results:
+            return False
+        temporal_mode = (profile or {}).get('temporal', 'balanced')
+        if temporal_mode != 'fresh':
+            return False
+        keywords = query.lower().split()
+        for r in ranked_results[:3]:
+            title = r.get('title', '').lower()
+            snippet = r.get('snippet', '').lower()
+            score = 0
+            for kw in keywords:
+                if kw in title:
+                    score += 3
+                if kw in snippet:
+                    score += 1
+            if score >= 4:
+                return True
+        return False

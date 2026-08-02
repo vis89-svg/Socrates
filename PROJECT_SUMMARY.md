@@ -1,6 +1,6 @@
-# Socrates — Project Summary
+# Socrates → Owl — Project Summary
 
-AI chat platform with deep-research pipeline. Django 6 + DRF backend, vanilla-JS single-file frontend, Supabase Postgres, OpenRouter + local llama.cpp models.
+AI chat platform with deep-research pipeline and agentic tool calling. Django 6 + DRF backend, React 18 + TypeScript + Vite frontend (animated Owl mascot), Supabase Postgres, OpenRouter + local llama.cpp models.
 
 ---
 
@@ -24,6 +24,11 @@ AI chat platform with deep-research pipeline. Django 6 + DRF backend, vanilla-JS
 | Tables/Export/Share | Table Copy (TSV) + CSV buttons; Word export (python-docx); PDF export (PyMuPDF Story); conversation sharing (UUID token, public page + JSON API, revocable) |
 | Edit fix | Edit → Save now regenerates the answer (`regenerate_message_id`), `streamReply()` frontend refactor |
 | Request performance | DB connection pooling, N+1 fix, parallel frontend bootstrap, scrypt hashing. **Login 4302ms → ~700ms** |
+| Owl rebuild | Full frontend rewrite: React 18 + TS + Vite (single-file JS → component SPA), animated Owl mascot + personality, API layer, live markdown rendering, theming, auth pages, message actions |
+| Agent decision loop | Model-driven tool calling: model sees results of every tool turn and decides next tool (search/calculate/fetch_url/code) — ReAct loop replacing the static one-shot router |
+| Fact integrity | Verifier now checks claimed values against real source text; fabricated source URLs dropped; honest confidence badges; extraction can no longer fail silently |
+| Speed | OpenRouter 429/5xx retry before fallback, token budgets trimmed (2048→1536 etc.), condensed decision prompts + compact tool transcripts, stage-progress events |
+| JWT send fix | `streamChat`/`exportMessage` 401 → auto refresh → retry (fixes "Given token not valid for any token type" send failures) |
 
 ---
 
@@ -47,6 +52,14 @@ AI chat platform with deep-research pipeline. Django 6 + DRF backend, vanilla-JS
 | 14 | Share links hardcoded localhost | No public base URL | `PUBLIC_BASE_URL` env setting |
 | 15 | Trace runs timed out (900s+) | Slow pipeline | Phase 3 fixes: trace4 = **190s** total, extraction 17/17 fields |
 | 16 | Duplicate user message on edit-regenerate | StreamView always created a user message | `regenerate_id` path skips creation |
+| 17 | **Incorrect facts sailed through "verification"** | Verifier scored *claimed source count* (3+ → High) but never read the source content — hallucinated values + invented URLs passed | Content verification: every value is checked against each claimed source's snippet/page text (`_content_supports`: substring, number-presence, token-overlap ≥0.5); fabricated-URL sources dropped; unsupported values downgrade with a note |
+| 18 | **Answers unverified while OpenRouter down** | Extraction had `allow_fallback=False` + 4 long backoff retries → failed silently → no verified dataset → weak local model freewheeled from snippets | 2 quick attempts (3s) + `allow_fallback=True` → local model always yields a dataset |
+| 19 | **Fake confidence badges** | Badge scored the writer's own `[Source N]` markers, not verified facts | Badge shown only when a verified dataset exists, from verified-fact ratio (High ≥0.75, Medium ≥0.5, Low ≥0.25); otherwise "No verified fact dataset — response is not fact-checked" |
+| 20 | **Send failed: "Given token not valid for any token type"** | `streamChat` + `exportMessage` used raw `fetch` with no 401→refresh flow (access token expired after 30 min) | `tryRefreshToken()` shared helper in API client; stream/export refresh then retry once; redirect on refresh failure |
+| 21 | **Search+analysis answers took ~13 min** | 2-core/4-thread 1.2GHz CPU + ~1.5GB free RAM → local model ~1–2 tok/s; OpenRouter 429 (rate-limited) made *every* model call fall local; 2048-token answer budget + verbose prompts | Retry 429/5xx once (2s) before fallback; answer budget 2048→**1536**; extraction 1200→**1000**; gap-fill 800→**700**; decision turns use a short agent-identity prompt + truncated (350-char) tool transcripts; UI shows stage progress instead of frozen spinner. Real ceiling is hardware — with OpenRouter up ≈2–6 min, fully local remains slow |
+| 22 | **Model never saw tool results — one-shot answers** | Static regex tool router + single generation: tools fired, results discarded | ReAct-style `DecisionLoop`: model gets tool outputs each turn and decides next tool (`TOOL {name, args}` protocol), max 4 iterations, `tool_use` SSE events to UI |
+| 23 | **Loop kept re-searching the same query** | Weak model repeats itself | Duplicate tool-call guard (same tool+args skipped) + explicit "never repeat a search" prompt rule |
+| 24 | **UI looked dead during long research** | No intermediate events | `stage` SSE events ("Searching…", "Researching…", "Writing…") + tool_use labels in status bar |
 
 ---
 
@@ -64,8 +77,18 @@ AI chat platform with deep-research pipeline. Django 6 + DRF backend, vanilla-JS
 | 8 | N+1 elimination | 2 queries × conversations | 1 annotated query |
 | 9 | Tracing accuracy | wrong timings | true per-stage durations surfaced in UI |
 | 10 | Negative caching (diskcache 30-min TTL) | repeated searches re-run | `set_empty` caches no-result too |
+| 11 | OpenRouter rate limits | immediate local fallback (slow, ~1-2 tok/s) | 1 retry with 2s backoff on 429/500/502/503/504 before falling back |
+| 12 | Answer token budget | deep-research always 2048 | 1536 (≈25% fewer tokens on the slow link) |
+| 13 | Extraction resilience | silent failure when OpenRouter down | local fallback always yields a dataset |
+| 14 | Verification | claimed-source count only | value↔source-text content check; fabricated URLs dropped |
+| 15 | Confidence badge | writer self-citation | verified-fact ratio; suppressed without dataset |
+| 16 | Agent generation | one-shot static tools | model-driven decision loop, 4-iteration cap, dedup guard |
+| 17 | **15-min answers when OpenRouter quota exhausted (50 free req/day)** | Every model call fell to local qwen 3B (~1-2 tok/s CPU) — a 1536-token answer alone ≈ 13 min | Provider fallback chain: **OpenRouter → Groq (llama-3.3-70b, 280 tok/s) → Gemini (3.5-flash) → local last resort**; 429/5xx → 2s → retry once → advance rung; missing key skips rung. B300-vs-MI400 question: **15 min → 5.5 min** (now search-bound, not model-bound) |
+| 18 | **Verifier only checked the value, not the claim** | `_content_supports` returned True whenever the value string appeared anywhere in a page — a page mentioning "1993" in an unrelated sentence counted as proof NVIDIA was founded in 1993 | Claim-level (sentence-anchored) verification: field-specific keywords (founded→founded/established/incorporated/…) must co-occur with the value in the SAME SENTENCE; otherwise the source is dropped with a "mentioned it in an unrelated context" note; pages that never discuss the topic stay neutral. No LLM — deterministic. 96/96 tests |
+| 19 | **Required authority searched and "found" — but absent from the answer evidence** (WHO query: planner ✅ requested who.int, coverage ✅ found who.int, evidence ❌ 0 who.int pages) | After `site:who.int` coverage, all results were re-ranked by keyword/recency and truncated to `[:15]` — the authoritative page lost the competition and was cut before fetching/extraction, so the writer never saw it | `_pin_required_domains`: every domain the coverage report lists as *found* is guaranteed a slot in the ranked evidence (drops the lowest-ranked generic entry at the cap; never drops another required authority). Verified live: WHO AI-guidance page now reaches evidence. Also: WHO-style day-first dates ("12 September 2024", "Last updated:…") now extract (`%d %B %Y` + labeled/bare day-first patterns + "reviewed" label); `ENABLE_PIPELINE_TRACE` default flipped to True (was silently off) — every request now records planner→expansion→search→rank→coverage→pin→fetch→verify stages. 103/103 tests |
+| 20 | **Agent-loop path still lost required authorities** (reviewer: "Summarize the latest WHO guidance" → answer cited CDC/ECDC/PMC, never WHO — pin fix only protected the legacy path) | `DecisionLoop._search` called `RetrievalService.execute(query, intent=None, required_sources=None)` — the planner's requirements never reached agent-loop searches; the coverage report was discarded; the transcript showed only `results[:4]` so the pinned WHO page (rank ~15) stayed invisible to the writer; answer prompt had no found/missing-authority semantics | DecisionLoop now carries planner `intent` + `required_sources` (wired from orchestrator) into every search round; tool result shows required-authority results FIRST plus the coverage report (`Required authorities: … / Found: … / Searched but no relevant results found: …`); **guaranteed at least one result per found authority in the transcript** even when ranked at 15; answer prompt: found authorities must be used, missing ones may only be described as "searched but no relevant guidance found" — never "has no guidance". E2E (HTTP, live): WHO H5N1 query cites `who.int` URL, says "WHO was searched and some relevant information was found" — no fabrication. 109/109 tests |
 
-**Net:** login 4302ms → ~700ms; chat open ~2s → ~650ms; full deep-research reply 523s → ~190s.
+**Net:** login 4302ms → ~700ms; chat open ~2s → ~650ms; full deep-research reply 523s → ~190s; with OpenRouter up, agent-loop answers ≈2–6 min (13-min worst case eliminated).
 
 ---
 
@@ -78,7 +101,8 @@ config/ (Django project: settings, urls, wsgi/asgi)
 ├── users/    → JWT auth (simplejwt), register, profile            [auth layer]
 ├── chat/     → Conversations, Messages, SSE Stream, Export, Share  [API layer]
 ├── ai/       → THE RESEARCH ENGINE (17 modules)                    [intelligence layer]
-│   ├── orchestrator.py        → generateResponse() generator
+│   ├── orchestrator.py        → generateResponse() generator (agent loop / legacy deep-research)
+│   ├── decision_loop.py       → ReAct loop: model picks tool per turn, results fed back (max 4 iters)
 │   ├── query_planner.py       → LLM JSON plan (rewrite, intent, tools, model_route)
 │   ├── task_analyzer.py       → regex capability classifier
 │   ├── tool_router.py         → dispatches search/math/docs/code/memory tools
@@ -91,6 +115,8 @@ config/ (Django project: settings, urls, wsgi/asgi)
 │   └── observability.py + feature_flags.py
 ├── memory/    → Memory (Postgres FTS), ConversationSummary, summarizer
 └── files/     → UserFile, PDF text extraction (+Tesseract OCR fallback)
+
+frontend/ (React 18 + TS + Vite) → src/api (auth/chat/memory/files, shared refresh logic), src/components (ChatScreen, Owl mascot, MessageBubble, SourcesPanel), src/types.ts (SSE event union incl. ToolUseEvent)
 ```
 
 ### 4b. Request journey (streaming chat message)
@@ -115,7 +141,7 @@ Frontend → POST /chat/conversations/{id}/stream/ {message, web_search, file_id
        └─ StreamingHttpResponse (text/event-stream) ──▶ SSE to browser
 ```
 
-Frontend consumes SSE: `analysis` → `search` (status bar w/ coverage) → `token` (renderMarkdown live) → `citations` (Sources panel) → `summary`/`timings` → `done` (attach Word/PDF tools).
+Frontend consumes SSE: `analysis` → `tool_use`/`stage` (status bar: Searching/Researching/Writing) → `token` (renderMarkdown live) → `citations` (Sources panel) → `summary`/`timings` → `done` (attach Word/PDF tools).
 
 ### 4c. Memory subsystem
 
@@ -143,6 +169,9 @@ Frontend consumes SSE: `analysis` → `search` (status bar w/ coverage) → `tok
 | RAG pipeline | Retrieval profiles → query expansion → multi-query fan-out → dedupe → weighted ranking → coverage enforcement (`site:` queries) → page fetch → summary |
 | Ground-truth layer | `GoldenFacts` override/confirm extraction; `ConsistencyChecker` rule engine (stale "latest", future release, contradictions) |
 | Confidence scoring | 3+ sources=High, 2=Medium, 1=Low, 0=None; staleness downgrade (2+ yrs) |
+| ReAct-style decision loop | Model chooses tool per turn (`TOOL {name, args}`), tool results appended back into the decision prompt, cap 4 iterations, duplicate-call guard |
+| Content verification | Deterministic value↔source-text check (substring / number-presence / token-overlap ≥0.5); fabricated source URLs dropped; downgrade notes |
+| JWT refresh-before-stream | `tryRefreshToken()` shared by `apiFetch`/`streamChat`/`exportMessage`; 401 → refresh → retry once; session-expired redirect on refresh failure |
 | Agent loop | Iterative gap detection → targeted searches → re-rank (max 2 iterations) |
 | Singleton | Lazy `get_model()` llama.cpp instance (loaded once) |
 | Feature flags | `ENABLE_*` env gates for search/memory/vision/code/calculator/planner/trace |
@@ -159,7 +188,7 @@ Frontend consumes SSE: `analysis` → `search` (status bar w/ coverage) → `tok
 | Observability | Per-request trace with stage durations (`TraceView` staff-only + timings in UI) |
 | Templated markdown→docx/pdf | Block parser (`_iter_blocks`) → python-docx / fitz.Story |
 | Idempotent + revocable share | UUID `share_token` create/revoke, public page + JSON API |
-| Single-file SPA | Vanilla JS, localStorage tokens, dark/light themes via CSS variables |
+| Component SPA | React 18 + TS + Vite, `src/api` layer with shared JWT refresh, animated SVG Owl, dark/light themes via CSS variables |
 
 ---
 
@@ -167,10 +196,10 @@ Frontend consumes SSE: `analysis` → `search` (status bar w/ coverage) → `tok
 
 | Item | Status |
 |---|---|
-| Tests | 58/58 pass (`ai.tests`: golden_facts, retrieval_profiles, regression) |
+| Tests | 84/84 pass (`ai.tests`: golden_facts, retrieval_profiles, regression, decision_loop, fact_verification, model_router); frontend `tsc --noEmit` + `vite build` clean |
 | Server | `runserver 0.0.0.0:8000 --noreload` (restart after backend edits) |
-| Verified end-to-end | Login, chat stream, edit+regenerate, table copy/CSV, docx/pdf export, share + revoke, share public page |
-| Hosting (Railway/Render) | Set `MODEL_PATH=''` (local GGUF won't exist) or upload model; `DEBUG=False`; gunicorn `1 worker × 4 threads` (Procfile ready); `PUBLIC_BASE_URL` → your domain; Supabase URL (pooling already applied) |
+| Verified end-to-end | Login, chat stream, agent decision loop (needs_math → calculate → "42"), edit+regenerate, table copy/CSV, docx/pdf export, share + revoke, share public page, JWT auto-refresh on send |
+| Hosting (Railway/Render) | Set `MODEL_PATH=''` (local GGUF won't exist) or upload model; `DEBUG=False`; gunicorn `1 worker × 4 threads` (Procfile ready); `PUBLIC_BASE_URL` → your domain; Supabase URL (pooling already applied); serve frontend from `npm run build` (dist/) |
 
 ---
 
@@ -202,5 +231,5 @@ Frontend consumes SSE: `analysis` → `search` (status bar w/ coverage) → `tok
 
 ## 8. Environment / Features
 
-- **Env-driven** (`backend/.env`, see `.env.example`): SECRET_KEY, DEBUG, DATABASE_URL (Supabase Postgres), ALLOWED_HOSTS, CORS, JWT TTLs, PUBLIC_BASE_URL, SUPABASE_*, MODEL_PATH/CONTEXT/THREADS, OPENROUTER_API_KEY, TAVILY/EXA/BRAVE keys, `ENABLE_*` flags
-- **Model routing** (`ai/models.json`): planner/chat/extract/reasoning/creative → OpenRouter `google/gemma-4-26b-a4b-it:free`; coding → `cohere/north-mini-code:free`; default/fallback → local `qwen2.5-3b-instruct-q4_k_m`
+- **Env-driven** (`backend/.env`, see `.env.example`): SECRET_KEY, DEBUG, DATABASE_URL (Supabase Postgres), ALLOWED_HOSTS, CORS, JWT TTLs, PUBLIC_BASE_URL, SUPABASE_*, MODEL_PATH/CONTEXT/THREADS, OPENROUTER/GROQ/GEMINI API keys + base URLs, TAVILY/EXA/BRAVE keys, `ENABLE_*` flags
+- **Model routing** (`ai/models.json`): planner/chat/extract/reasoning/creative → OpenRouter `google/gemma-4-26b-a4b-it:free`; coding → `cohere/north-mini-code:free`; default/fallback → local `qwen2.5-3b-instruct-q4_k_m`; `fallback_chain` = Groq `llama-3.3-70b-versatile` → Gemini `gemini-3.5-flash` → local (tried in order when the primary rung fails; free quotas: OpenRouter 50 req/day, Groq 1K req/day, Gemini ~1.5K req/day — all reset daily)

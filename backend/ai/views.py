@@ -44,6 +44,8 @@ class StreamView(APIView):
                     yield f'data: {json.dumps({"token": event["content"]})}\n\n'
                 elif event['type'] == 'search_results':
                     yield f'data: {json.dumps({"search": True, "count": event["count"], "provider": event["provider"]})}\n\n'
+                elif event['type'] == 'stage':
+                    yield f'data: {json.dumps({"stage": event["label"]})}\n\n'
                 elif event['type'] == 'citations':
                     yield f'data: {json.dumps({"citations": event["citations"]})}\n\n'
                 elif event['type'] == 'done':

@@ -4,14 +4,17 @@ from datetime import datetime
 
 from .extractor import _parse_json
 from .feature_flags import FeatureFlags
-from .model_router import ModelRouter
+from .model_router import ModelRouter, api_quota_down
 from .retrieval_service import RetrievalService
+from .retrieval_profiles import matches_domain
 from .calculator_service import evaluate_expression
 from .page_fetcher import PageFetcher
 from .code_executor import execute_code
 
 
 MAX_ITERATIONS = 4
+DEGRADED_ITERATIONS = 1
+DEGRADED_ANSWER_MAX_TOKENS = 300
 DECISION_MAX_TOKENS = 120
 ANSWER_MAX_TOKENS = 1536
 
@@ -30,11 +33,16 @@ def _load_prompt(name):
         return ''
 
 
+ANSWER_SENTINEL = '__ANSWER__'
+
+
 def _parse_action(text):
-    """Return (tool, args) if the text is a tool call, else None."""
+    """Return (tool, args), ANSWER_SENTINEL, or None."""
     if not text:
         return None
     text = text.strip()
+    if text.upper() == 'ANSWER':
+        return ANSWER_SENTINEL
     if text.upper().startswith('TOOL'):
         text = text[len('TOOL'):].strip()
     parsed = _parse_json(text)
@@ -70,7 +78,8 @@ class DecisionLoop:
 
     def __init__(self, query, history=None, user=None, conversation_id=None,
                  files_data=None, model_key='chat', web_search=None,
-                 context_blocks=None, tracer=None, generate_fn=None):
+                 context_blocks=None, tracer=None, generate_fn=None,
+                 intent=None, required_sources=None):
         self.query = query
         self.history = history or []
         self.user = user
@@ -81,6 +90,8 @@ class DecisionLoop:
         self.context_blocks = context_blocks or []
         self.tracer = tracer
         self.generate_fn = generate_fn or ModelRouter.generate_stream
+        self.intent = intent
+        self.required_sources = required_sources
 
         self.transcript = []
         self.search_results = []
@@ -128,9 +139,11 @@ class DecisionLoop:
         parts = list(self.context_blocks)
         if self.history:
             lines = []
-            for msg in self.history[-8:]:
+            for msg in self.history[-6:]:
                 role = msg['role'] if isinstance(msg, dict) else msg.role
                 content = msg['content'] if isinstance(msg, dict) else msg.content
+                if len(content) > 600:
+                    content = content[:600] + '...[truncated]'
                 lines.append(f'{role}: {content}')
             parts.append('Recent conversation:\n' + '\n'.join(lines))
         if self.files_data:
@@ -163,14 +176,19 @@ class DecisionLoop:
         return content if len(content) <= max_result_chars else content[:max_result_chars] + '\n...[truncated]'
 
     def _decision_prompt(self):
-        return self._base_prompt(condensed=True, max_result_chars=350) + '\n<|im_start|>assistant\n'
+        return self._base_prompt(condensed=True, max_result_chars=1500) + '\n<|im_start|>assistant\n'
 
     def _answer_prompt(self):
         return (
-            self._base_prompt()
+            self._base_prompt(max_result_chars=4000)
             + '\n\nAll tool calls are complete. Write your final answer to the user now. '
             + 'Every factual claim MUST come from the tool results above; if a detail is not in them, '
-            + 'say it is not stated in the sources. Cite sources by URL for each claim.'
+            + 'say it is not stated in the sources. Cite sources by URL for each claim. '
+            + 'If a search reported "Required authorities" and one of them appears in its '
+            + '"Searched but no relevant results found" line, write "<Organization> was searched but no '
+            + 'relevant current guidance was found." and nothing stronger. NEVER claim an organization has '
+            + 'no guidance unless its domain was actually searched (i.e. appears in the required list). '
+            + 'If a required authority was found, make sure its information is used in the answer.'
             + '\n<|im_start|>assistant\n'
         )
 
@@ -205,20 +223,50 @@ class DecisionLoop:
         if not query or not FeatureFlags.is_enabled('ENABLE_SEARCH'):
             return 'ERROR: search is unavailable'
         retrieval = RetrievalService()
-        info = retrieval.execute(query, intent=None, required_sources=None)
+        info = retrieval.execute(query, intent=self.intent, required_sources=self.required_sources)
         results = info.get('results') or []
+        coverage = info.get('coverage') or {}
         self.search_results.extend(results)
         self.last_provider = info.get('provider')
+        prioritized = self._prioritize_required(results, coverage)
+        shown = prioritized[:6]
+        if len(results) > 6:
+            for domain in coverage.get('found') or []:
+                if any(matches_domain(r.get('url', ''), domain) for r in shown):
+                    continue
+                for r in prioritized:
+                    if matches_domain(r.get('url', ''), domain):
+                        shown.append(r)
+                        break
+            shown = shown[:8]
         lines = [f'Search completed: {len(results)} results.']
-        for i, r in enumerate(results[:4], 1):
+        for i, r in enumerate(shown, 1):
             lines.append(f'{i}. {r.get("title", "Untitled")}')
             lines.append(f'   URL: {r.get("url", "")}')
             snippet = r.get('snippet') or ''
             if snippet:
                 lines.append(f'   Snippet: {snippet[:300]}')
-        if len(results) > 4:
-            lines.append(f'... and {len(results) - 4} more results.')
+        if len(shown) > 6:
+            lines.append(f'... and {len(shown) - 6} more results.')
+        if coverage.get('required'):
+            lines.append('Required authorities: ' + ', '.join(coverage['required']))
+            if coverage.get('found'):
+                lines.append('Found: ' + ', '.join(coverage['found']))
+            if coverage.get('missing'):
+                lines.append('Searched but no relevant results found: ' + ', '.join(coverage['missing']))
         return '\n'.join(lines)
+
+    @staticmethod
+    def _prioritize_required(results, coverage):
+        required = coverage.get('required') or []
+        if not required:
+            return results
+
+        def is_required(result):
+            url = result.get('url') or ''
+            return any(matches_domain(url, domain) for domain in required)
+
+        return [r for r in results if is_required(r)] + [r for r in results if not is_required(r)]
 
     def _calculate(self, expression):
         expression = (expression or '').strip()
@@ -266,9 +314,12 @@ class DecisionLoop:
         if self.web_search is True:
             yield from self._execute_tool('search', {'query': self.query})
 
-        while self.tool_count < MAX_ITERATIONS:
+        max_iterations = DEGRADED_ITERATIONS if api_quota_down() else MAX_ITERATIONS
+        while self.tool_count < max_iterations:
             decision = self._call(self._decision_prompt(), DECISION_MAX_TOKENS)
             action = _parse_action(decision)
+            if action is ANSWER_SENTINEL:
+                break
             if action is None:
                 self.strikes += 1
                 if self.strikes >= 2:
@@ -292,9 +343,29 @@ class DecisionLoop:
 
         yield {'type': 'tool_use', 'tool': 'answer', 'label': 'Generating answer...', 'args': {}}
 
-        self.final_text = self._call(self._answer_prompt(), ANSWER_MAX_TOKENS)
+        answer_max = DEGRADED_ANSWER_MAX_TOKENS if api_quota_down() else ANSWER_MAX_TOKENS
+        try:
+            self.final_text = self._call(self._answer_prompt(), answer_max)
+        except Exception:
+            self.final_text = (
+                'I searched the web but was unable to generate a complete answer '
+                'due to a backend error. Here is what I found:\n\n'
+                + (self._search_summary() or 'No search results were available.')
+            )
         for token in self.final_text:
             yield {'type': 'token', 'content': token}
+
+    def _search_summary(self):
+        if not self.search_results:
+            return None
+        lines = [f'Found {len(self.search_results)} search results:']
+        for i, r in enumerate(self.search_results[:6], 1):
+            lines.append(f'{i}. {r.get("title", "Untitled")}')
+            lines.append(f'   URL: {r.get("url", "")}')
+            snippet = r.get('snippet') or ''
+            if snippet:
+                lines.append(f'   {snippet[:200]}')
+        return '\n'.join(lines)
 
     def _execute_tool(self, tool, args):
         self.tool_count += 1

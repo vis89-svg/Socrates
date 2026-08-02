@@ -60,11 +60,21 @@ _INTENT_KEYWORDS = [
         'company', 'overview', 'ceo', 'founder', 'headquarters', 'employees',
         'leadership', 'about us', 'profile', 'organization', 'division', 'fab',
     ]),
+    ('weather', [
+        'weather', 'temperature', 'forecast', 'rain', 'humidity', 'wind',
+        'IMD', 'monsoon', 'cyclone', 'alert', 'warning', 'flood', 'storm',
+        'weather in', 'weather at', 'weather for', 'how is the weather',
+    ]),
+    ('finance', [
+        'price of', 'stock', 'market cap', 'revenue', 'earnings',
+        'financial', '10-k', '10-q', 'sec filing', 'shareholder', 'dividend',
+        'net income', 'valuation', 'investor', 'fundraise', 'quarterly results',
+    ]),
 ]
 
 _TIEBREAK_ORDER = [
     'investment', 'medical', 'regulatory', 'hardware', 'technical',
-    'news', 'historical', 'science', 'company', 'general',
+    'weather', 'finance', 'news', 'historical', 'science', 'company', 'general',
 ]
 
 _INTENT_ALIASES = [
@@ -77,6 +87,8 @@ _INTENT_ALIASES = [
     ('historical', ['historical', 'history', 'past', 'archive']),
     ('science', ['science', 'scientific', 'research', 'physics', 'biology', 'astronomy']),
     ('company', ['company', 'corporate', 'organization', 'business overview']),
+    ('weather', ['weather', 'temperature', 'forecast', 'rain', 'humidity', 'wind', 'IMD', 'monsoon', 'cyclone', 'alert', 'flood', 'storm']),
+    ('finance', ['price of', 'stock price', 'market', 'financial', 'earnings', 'share']),
 ]
 
 

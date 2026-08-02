@@ -2,7 +2,23 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from ai.decision_loop import DecisionLoop, MAX_ITERATIONS, _parse_action
+from ai.decision_loop import ANSWER_SENTINEL, DecisionLoop, MAX_ITERATIONS, _parse_action
+from ai.model_router import _STATE_PATH, reset_quota_state
+from ai.retrieval_profiles import matches_domain
+
+import os
+
+
+def setUpModule():
+    reset_quota_state()
+    if os.path.exists(_STATE_PATH):
+        os.remove(_STATE_PATH)
+
+
+def tearDownModule():
+    reset_quota_state()
+    if os.path.exists(_STATE_PATH):
+        os.remove(_STATE_PATH)
 
 
 class FakeModel:
@@ -39,8 +55,8 @@ class ParseActionTests(SimpleTestCase):
     def test_plain_answer_text_is_none(self):
         self.assertIsNone(_parse_action('The answer is 42.'))
 
-    def test_answer_word_is_none(self):
-        self.assertIsNone(_parse_action('ANSWER'))
+    def test_answer_word_returns_sentinel(self):
+        self.assertIs(_parse_action('ANSWER'), ANSWER_SENTINEL)
 
     def test_malformed_json_is_none(self):
         self.assertIsNone(_parse_action('{"tool": "search"'))
@@ -54,7 +70,6 @@ class DecisionLoopTests(SimpleTestCase):
         with patch.object(DecisionLoop, '_dispatch', return_value='canned result') as dispatch:
             events = list(loop.run())
         return loop, model, events, dispatch
-
     def _tokens(self, events):
         return ''.join(e['content'] for e in events if e['type'] == 'token')
 
@@ -126,3 +141,110 @@ class DecisionLoopTests(SimpleTestCase):
         loop = DecisionLoop('hi', model_key='chat', generate_fn=flaky)
         events = list(loop.run())
         self.assertEqual(self._tokens(events), 'backup answer')
+
+    def test_quota_down_caps_iterations_to_one(self):
+        with patch('ai.decision_loop.api_quota_down', return_value=True):
+            script = ['TOOL {"tool": "calculate", "expression": "0+1"}', 'Fast answer.']
+            loop, _, events, _ = self._loop(script)
+        tool_calls = [e for e in events if e['type'] == 'tool_use' and e['tool'] != 'answer']
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(loop.tool_count, 1)
+        self.assertEqual(self._tokens(events), 'Fast answer.')
+
+    def test_quota_down_caps_answer_tokens(self):
+        with patch('ai.decision_loop.api_quota_down', return_value=True):
+            loop, model, events, _ = self._loop(['ANSWER', 'Short answer.'])
+        self.assertEqual(self._tokens(events), 'Short answer.')
+        self.assertEqual(model.calls[-1]['max_tokens'], 300)
+
+    def test_normal_mode_uses_full_answer_tokens(self):
+        _, model, _, _ = self._loop(['ANSWER', 'Full answer.'])
+        self.assertEqual(model.calls[-1]['max_tokens'], 1536)
+
+
+class ContextTests(SimpleTestCase):
+    def test_history_content_is_truncated(self):
+        loop = DecisionLoop(
+            'q', model_key='chat', generate_fn=lambda *a, **k: iter(['x']),
+            history=[{'role': 'user', 'content': 'x' * 5000}],
+        )
+        text = loop._context_text()
+        self.assertIn('...[truncated]', text)
+        self.assertLess(len(text), 800)
+
+    def test_history_limited_to_six_messages(self):
+        loop = DecisionLoop(
+            'q', model_key='chat', generate_fn=lambda *a, **k: iter(['x']),
+            history=[{'role': 'user', 'content': 'm'} for _ in range(12)],
+        )
+        text = loop._context_text()
+        self.assertEqual(text.count('user: m'), 6)
+
+
+class SearchToolTests(SimpleTestCase):
+    def _run(self, info, **kwargs):
+        loop = DecisionLoop('q', model_key='chat', generate_fn=lambda *a, **k: iter(['x']), **kwargs)
+        with patch('ai.decision_loop.RetrievalService') as svc:
+            svc.return_value.execute.return_value = info
+            result = loop._search('the query')
+        return loop, result
+
+    def test_required_sources_forwarded_to_retrieval(self):
+        loop = DecisionLoop(
+            'q', model_key='chat', generate_fn=lambda *a, **k: iter(['x']),
+            intent='medical', required_sources=['who.int'],
+        )
+        with patch('ai.decision_loop.RetrievalService') as svc:
+            loop._search('flu guidance')
+        svc.return_value.execute.assert_called_once_with(
+            'flu guidance', intent='medical', required_sources=['who.int'],
+        )
+
+    def test_coverage_report_included_in_result(self):
+        _, result = self._run({
+            'results': [],
+            'coverage': {
+                'required': ['who.int', 'cdc.gov'],
+                'found': ['cdc.gov'],
+                'missing': ['who.int'],
+            },
+        })
+        self.assertIn('Required authorities: who.int, cdc.gov', result)
+        self.assertIn('Found: cdc.gov', result)
+        self.assertIn('Searched but no relevant results found: who.int', result)
+
+    def test_required_domain_results_shown_first(self):
+        results = [
+            {'url': 'https://pubmed.ncbi.nlm.nih.gov/1', 'title': 'Pubmed one', 'snippet': 'a'},
+            {'url': 'https://www.who.int/news/item/1', 'title': 'WHO page', 'snippet': 'b'},
+            {'url': 'https://pubmed.ncbi.nlm.nih.gov/2', 'title': 'Pubmed two', 'snippet': 'c'},
+        ]
+        _, result = self._run({'results': results, 'coverage': {'required': ['who.int'], 'found': ['who.int']}})
+        who_pos = result.index('URL: https://www.who.int/news/item/1')
+        pubmed1_pos = result.index('URL: https://pubmed.ncbi.nlm.nih.gov/1')
+        pubmed2_pos = result.index('URL: https://pubmed.ncbi.nlm.nih.gov/2')
+        self.assertLess(who_pos, pubmed1_pos)
+        self.assertLess(who_pos, pubmed2_pos)
+
+    def test_prioritize_required_uses_effective_required(self):
+        results = [
+            {'url': 'https://www.who.int/news/item/1', 'title': 'WHO page'},
+            {'url': 'https://nasa.gov/article', 'title': 'NASA page'},
+        ]
+        ordered = DecisionLoop._prioritize_required(results, {'required': ['who.int', 'cdc.gov']})
+        self.assertEqual(ordered[0]['url'], 'https://www.who.int/news/item/1')
+        self.assertTrue(matches_domain(ordered[0]['url'], 'who.int'))
+
+    def test_no_coverage_leaves_order_unchanged(self):
+        results = [{'url': 'https://a.com/1', 'title': 'A'}, {'url': 'https://b.com/2', 'title': 'B'}]
+        self.assertEqual(DecisionLoop._prioritize_required(results, {}), results)
+
+    def test_found_domain_always_visible_even_beyond_top_six(self):
+        results = [
+            {'url': f'https://cdc.gov/page/{i}', 'title': f'CDC {i}'} for i in range(8)
+        ] + [{'url': 'https://www.who.int/news/item/1', 'title': 'WHO page', 'snippet': 'w'}]
+        _, result = self._run({
+            'results': results,
+            'coverage': {'required': ['who.int', 'cdc.gov'], 'found': ['who.int', 'cdc.gov']},
+        })
+        self.assertIn('URL: https://www.who.int/news/item/1', result)

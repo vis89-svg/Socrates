@@ -64,7 +64,7 @@
       "keywords": ["clinical trial", "treatment guidelines", "evidence"],
       "temporal": "balanced",
       "restrictive": false,
-      "schema_hint": null
+      "schema_hint": "research"
     },
     "science": {
       "description": "Research papers, experiments, technical breakthroughs",
@@ -75,7 +75,7 @@
       "keywords": ["research", "study", "experiment"],
       "temporal": "balanced",
       "restrictive": false,
-      "schema_hint": null
+      "schema_hint": "research"
     },
     "regulatory": {
       "description": "Laws, regulations, compliance, government policy",
@@ -109,6 +109,28 @@
       "temporal": "balanced",
       "restrictive": false,
       "schema_hint": null
+    },
+    "weather": {
+      "description": "Current weather conditions, forecasts, warnings for a location",
+      "required_domains": ["mausam.imd.gov.in", "weather.gov", "openweathermap.org"],
+      "preferred_domains": ["mausam.imd.gov.in", "weather.gov", "openweathermap.org", "accuweather.com", "weather.com", "metoffice.gov.uk"],
+      "boost_domains": ["mausam.imd.gov.in", "weather.gov", "openweathermap.org", "accuweather.com", "weather.com", "metoffice.gov.uk", "india.gov.in", "ndma.gov.in", "kerala.gov.in"],
+      "excluded_domains": ["reddit.com", "quora.com", "medium.com"],
+      "keywords": ["weather", "temperature", "forecast", "rain", "humidity", "wind", "alert", "warning", "IMD", "monsoon", "cyclone"],
+      "temporal": "fresh",
+      "restrictive": false,
+      "schema_hint": "weather"
+    },
+    "finance": {
+      "description": "Stock prices, financial data, market information",
+      "required_domains": ["sec.gov", "reuters.com"],
+      "preferred_domains": ["sec.gov", "reuters.com", "finance.yahoo.com", "bloomberg.com"],
+      "boost_domains": ["sec.gov", "reuters.com", "bloomberg.com", "cnbc.com", "finance.yahoo.com", "marketwatch.com"],
+      "excluded_domains": ["reddit.com", "quora.com"],
+      "keywords": ["price", "stock", "market", "financial", "earnings"],
+      "temporal": "fresh",
+      "restrictive": true,
+      "schema_hint": "finance"
     }
   }
 }

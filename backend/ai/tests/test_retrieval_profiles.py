@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from django.test import SimpleTestCase
 
 from ai.query_expander import QueryExpander
-from ai.retrieval_service import RetrievalService
+from ai.retrieval_service import RetrievalService, _extract_date_from_text, _parse_date
 from ai.retrieval_profiles import RetrievalProfile
 from ai.query_planner import QueryPlanner
 from ai.tests.test_regression import load_corpus, load_expected_intent
@@ -230,6 +230,62 @@ class SourceCoverageTests(SimpleTestCase):
         summary = svc._build_summary(results, coverage={'required': ['who.int', 'cdc.gov'], 'found': ['who.int'], 'missing': ['cdc.gov']})
         self.assertIn('Source coverage report', summary)
         self.assertIn('Searched but no relevant results found: cdc.gov', summary)
+
+    def test_pin_promotes_required_domain_into_ranked(self):
+        ranked = [{'url': 'https://pubmed.example/1', 'title': 'A'}]
+        all_results = [
+            {'url': 'https://pubmed.example/1', 'title': 'A'},
+            {'url': 'https://www.who.int/guidance', 'title': 'WHO guidance', 'snippet': 's'},
+            {'url': 'https://www.who.int/other', 'title': 'WHO other', 'snippet': 's'},
+        ]
+        coverage = {'required': ['who.int'], 'found': ['who.int'], 'missing': []}
+        out = RetrievalService._pin_required_domains(ranked, all_results, coverage)
+        self.assertEqual(len(out), 2)
+        self.assertTrue(any('who.int' in r['url'] for r in out))
+        self.assertEqual(out[0]['url'], 'https://pubmed.example/1')
+
+    def test_pin_keeps_existing_required_domain(self):
+        ranked = [{'url': 'https://www.who.int/x', 'title': 'WHO'}]
+        all_results = [{'url': 'https://www.who.int/x', 'title': 'WHO'}]
+        coverage = {'required': ['who.int'], 'found': ['who.int'], 'missing': []}
+        out = RetrievalService._pin_required_domains(ranked, all_results, coverage)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]['url'], 'https://www.who.int/x')
+
+    def test_pin_noop_without_coverage(self):
+        ranked = [{'url': 'https://example.com/a', 'title': 'A'}]
+        out = RetrievalService._pin_required_domains(ranked, [{'url': 'https://www.who.int/x'}], None)
+        self.assertEqual(out, ranked)
+
+    def test_pin_at_cap_drops_lowest_generic(self):
+        ranked = [{'url': f'https://generic.example/{i}', 'title': f'G{i}'} for i in range(15)]
+        all_results = ranked + [{'url': 'https://www.who.int/guidance', 'title': 'WHO', 'snippet': 's'}]
+        coverage = {'required': ['who.int'], 'found': ['who.int'], 'missing': []}
+        out = RetrievalService._pin_required_domains(ranked, all_results, coverage)
+        self.assertEqual(len(out), 15)
+        self.assertTrue(any('who.int' in r['url'] for r in out))
+        self.assertFalse(any(r['url'] == 'https://generic.example/14' for r in out))
+
+    def test_pin_at_cap_never_drops_required_domain(self):
+        ranked = [{'url': 'https://www.who.int/a', 'title': 'WHO'}]
+        ranked += [{'url': f'https://generic.example/{i}', 'title': f'G{i}'} for i in range(14)]
+        all_results = ranked + [{'url': 'https://www.cdc.gov/guidance', 'title': 'CDC', 'snippet': 's'}]
+        coverage = {'required': ['who.int', 'cdc.gov'], 'found': ['who.int', 'cdc.gov'], 'missing': []}
+        out = RetrievalService._pin_required_domains(ranked, all_results, coverage)
+        self.assertTrue(any('who.int' in r['url'] for r in out))
+        self.assertTrue(any('cdc.gov' in r['url'] for r in out))
+
+    def test_extract_who_style_day_first_dates(self):
+        self.assertEqual(_extract_date_from_text('Last updated: 12 September 2024'), '2024-09-12')
+        self.assertEqual(_extract_date_from_text('Published: 3 May 2024'), '2024-05-03')
+        self.assertEqual(_extract_date_from_text('Reviewed: 15 January 2024'), '2024-01-15')
+        self.assertEqual(_extract_date_from_text('12 September 2024'), '2024-09-12')
+        self.assertEqual(_extract_date_from_text('Updated: 2024-09-12'), '2024-09-12')
+        self.assertIsNone(_extract_date_from_text('No dates here.'))
+
+    def test_parse_date_day_first_long_month(self):
+        self.assertIsNotNone(_parse_date('12 September 2024'))
+        self.assertIsNotNone(_parse_date('3 May 2024'))
 
 
 class PlannerRequiredSourcesTests(SimpleTestCase):

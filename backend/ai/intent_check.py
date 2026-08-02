@@ -7,6 +7,12 @@ SEARCH_KEYWORDS = [
     'announce', 'launch', 'release', 'report', 'data', 'statistics',
 ]
 
+WEATHER_KEYWORDS = [
+    'weather', 'temperature', 'forecast', 'rain', 'humidity',
+    'wind', 'IMD', 'monsoon', 'cyclone', 'alert', 'flood',
+    'storm', 'weather in', 'weather at', 'weather for',
+]
+
 TIMELESS_PATTERNS = [
     r'\bexplain\b', r'\bdefine\b', r'\bwhat is\b', r'\bwhat are\b',
     r'\bhow does\b', r'\bhow do\b', r'\bwhy is\b', r'\bwhy does\b',
@@ -21,11 +27,12 @@ def needs_search(query):
 
     has_timeless = any(re.search(p, q) for p in TIMELESS_PATTERNS)
     has_timely = any(kw in q for kw in SEARCH_KEYWORDS)
+    has_weather = any(kw in q for kw in WEATHER_KEYWORDS)
 
-    if has_timeless and not has_timely:
+    if has_timeless and not has_timely and not has_weather:
         return False
 
-    if has_timely:
+    if has_timely or has_weather:
         return True
 
     if len(q.split()) <= 3:

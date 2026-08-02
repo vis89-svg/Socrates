@@ -90,7 +90,7 @@ PASSWORD_HASHERS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
@@ -142,6 +142,10 @@ EXA_API_KEY = env('EXA_API_KEY', default='')
 BRAVE_API_KEY = env('BRAVE_API_KEY', default='')
 OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default='')
 OPENROUTER_BASE_URL = env('OPENROUTER_BASE_URL', default='https://openrouter.ai/api/v1')
+GROQ_API_KEY = env('GROQ_API_KEY', default='')
+GROQ_BASE_URL = env('GROQ_BASE_URL', default='https://api.groq.com/openai/v1')
+GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
+GEMINI_BASE_URL = env('GEMINI_BASE_URL', default='https://generativelanguage.googleapis.com/v1beta/openai/v1')
 ENABLE_SEARCH = env.bool('ENABLE_SEARCH', default=True)
 ENABLE_MEMORY = env.bool('ENABLE_MEMORY', default=True)
 ENABLE_VISION = env.bool('ENABLE_VISION', default=False)

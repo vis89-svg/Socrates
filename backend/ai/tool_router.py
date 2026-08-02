@@ -9,12 +9,14 @@ from .code_executor import execute_code
 
 class ToolRouter:
     @staticmethod
-    def execute(capabilities, query, user=None, conversation_id=None, intent=None, required_sources=None):
+    def execute(capabilities, query, user=None, conversation_id=None, intent=None,
+                required_sources=None, constraints=None):
         results = {'search': None, 'memories': None, 'documents': None, 'calculation': None, 'code_result': None}
 
         if 'needs_search' in capabilities and FeatureFlags.is_enabled('ENABLE_SEARCH'):
             retrieval = RetrievalService()
-            results['search'] = retrieval.execute(query, intent=intent, required_sources=required_sources)
+            results['search'] = retrieval.execute(query, intent=intent, required_sources=required_sources,
+                                                  constraints=constraints)
 
         if 'needs_math' in capabilities and FeatureFlags.is_enabled('ENABLE_CALCULATOR'):
             result, expr = evaluate_expression(query)

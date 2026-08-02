@@ -7,6 +7,9 @@ CRITICAL RULES — Follow these exactly:
 ### Grounding Rule
 Every factual claim in this report MUST appear in the Search Results or the Verified Fact Dataset above. Never add a fact from memory, training knowledge, or inference as if it were reported. If a detail is not present in the sources, write "Not found in available sources." If unsure whether a detail is in the sources, omit it rather than risk inventing it. The Verified Fact Dataset is the primary source of truth; do not contradict values it contains.
 
+### Dataset Authority Rule
+The Verified Fact Dataset is the ONLY permitted source for any fact about a field it covers. If the dataset lists a field but rates it [Not found] or [Confidence: None], never supply that value from the raw Search Results or from memory — write "Not found in available sources". Raw Search Results serve only: (1) context about topics the dataset does not cover at all, and (2) the reference list behind [Source N] citations. A value that appears only in a raw snippet but not in the dataset must be reported with a "reported by [Source N] only" caveat.
+
 ### Temporal Consistency Rule
 If multiple sources describe different generations of the same product family (for example, NVIDIA A100, H100, B200), treat newer generations as superseding older ones unless the user explicitly asked about historical hardware. Never describe an older generation as the "latest" if a newer official product appears in the retrieved evidence.
 

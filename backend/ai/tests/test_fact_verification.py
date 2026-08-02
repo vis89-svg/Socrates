@@ -28,6 +28,30 @@ class ContentSupportTests(SimpleTestCase):
         self.assertIsNone(_content_supports('', 'Acme Corp'))
         self.assertIsNone(_content_supports(None, 'Acme Corp'))
 
+    def test_anchored_value_supported(self):
+        self.assertTrue(_content_supports('NVIDIA was founded in 1993.', '1993', ['founded', 'established', 'incorporated']))
+        self.assertTrue(_content_supports('NVIDIA Corporation was established in 1993.', '1993', ['founded', 'established', 'incorporated']))
+
+    def test_value_in_unrelated_context_rejected(self):
+        self.assertFalse(_content_supports(
+            'In 1993 NVIDIA shipped its first GPU. The firm was founded in 1990.',
+            '1993', ['founded', 'established', 'incorporated']))
+
+    def test_keywords_on_other_sentence_do_not_anchor(self):
+        self.assertFalse(_content_supports(
+            'Acme released the 1998 catalog. The company was founded in 1990.',
+            '1998', ['founded', 'established', 'incorporated']))
+
+    def test_value_without_any_keyword_is_neutral_accept(self):
+        self.assertTrue(_content_supports(
+            'In 1993 NVIDIA shipped its first GPU.',
+            '1993', ['founded', 'established', 'incorporated']))
+
+    def test_multiline_sentence_anchor(self):
+        self.assertTrue(_content_supports(
+            'Overview\nNVIDIA was founded in 1993.\nDetails',
+            '1993', ['founded', 'established']))
+
 
 class VerifierContentTests(SimpleTestCase):
     def test_value_in_all_sources_is_high(self):
@@ -91,3 +115,27 @@ class VerifierContentTests(SimpleTestCase):
         )
         self.assertEqual(out['company_name']['confidence'], 'high')
         self.assertEqual(len(out['company_name']['sources']), 3)
+
+    def test_claim_rejected_when_value_in_unrelated_context(self):
+        results = [
+            _result('https://example.com/a', 'In 1993 Acme shipped its first GPU. The firm was founded in 1990.'),
+            _result('https://example.com/b', 'Acme was founded in 1993.'),
+        ]
+        out = FactVerifier.verify(
+            {'founded': {'value': '1993', 'sources': [{'url': r['url']} for r in results]}},
+            results,
+        )
+        self.assertEqual(out['founded']['sources'], ['https://example.com/b'])
+        self.assertIn('unrelated context', out['founded']['note'])
+
+    def test_claim_supported_only_when_sentence_anchored(self):
+        results = [
+            _result('https://example.com/a', 'Acme Corp was founded in 1993 by two engineers.'),
+            _result('https://example.com/b', 'Acme raised funding in 1993. The company was founded in 1990.'),
+        ]
+        out = FactVerifier.verify(
+            {'founded': {'value': '1993', 'sources': [{'url': r['url']} for r in results]}},
+            results,
+        )
+        self.assertEqual(out['founded']['sources'], ['https://example.com/a'])
+        self.assertEqual(out['founded']['confidence'], 'low')

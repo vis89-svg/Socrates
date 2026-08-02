@@ -12,9 +12,11 @@ class FeatureFlags:
             'ENABLE_CALCULATOR': False,
             'ENABLE_OBSERVABILITY': True,
             'ENABLE_QUERY_PLANNER': True,
-            'ENABLE_PIPELINE_TRACE': False,
+            'ENABLE_PIPELINE_TRACE': True,
             'ENABLE_AGENT_LOOP': True,
             'ENABLE_PAGE_FETCH': True,
+            'ENABLE_WEATHER_IMD': True,
+            'ENABLE_WEATHER': True,
         }
         value = getattr(settings, flag, None)
         if value is not None:

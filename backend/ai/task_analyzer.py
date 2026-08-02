@@ -8,6 +8,12 @@ _TIMELY_KEYWORDS = [
     'announce', 'launch', 'release', 'report', 'data', 'statistics',
 ]
 
+_WEATHER_KEYWORDS = [
+    'weather', 'temperature', 'forecast', 'rain', 'humidity',
+    'wind', 'IMD', 'monsoon', 'cyclone', 'alert', 'flood',
+    'storm', 'weather in', 'weather at', 'weather for',
+]
+
 _PATTERNS = {
     'needs_code': [
         r'\bcode\b', r'\bfunction\b', r'\bdebug\b', r'\bimplementation\b',
@@ -69,7 +75,8 @@ class TaskAnalyzer:
                     break
 
         has_timely = any(kw in q for kw in _TIMELY_KEYWORDS)
-        if has_timely:
+        has_weather = any(kw in q for kw in _WEATHER_KEYWORDS)
+        if has_timely or has_weather:
             capabilities.add('needs_search')
 
         if not capabilities:
